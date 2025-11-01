@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="id"><head><meta charset="UTF-8"><title>Kelola Mapel</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="/assets/admin.css">
+  <script src="/assets/admin.js" defer></script>
+</head>
+<body class="dashboard-simple">
+  <div class="layout">
+    <%- include('_sidebar') %>
+    <main class="content">
+      <div class="main-top"><a class="pill-link" href="/admin/logout">Keluar</a></div>
+  <h2>Kelola Mapel</h2>
+      <style>
+        .form-box { max-width: 620px; margin: 0 auto 16px; }
+        .form-grid { display: grid; grid-template-columns: 160px 1fr; column-gap: 16px; row-gap: 12px; align-items: center; }
+        .form-grid label { margin: 0; font-weight: 700; font-size: 13px; color: #374151; }
+        .form-grid .input-el input, .form-grid .input-el select { width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 10px; background: #fafafa; box-sizing: border-box; }
+        .form-grid .input-el input:focus, .form-grid .input-el select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,0.15); background: #fff; }
+        .modal-backdrop-mapel { position: fixed; inset: 0; background: rgba(17,24,39,0.35); display: flex; align-items: flex-start; justify-content: center; padding: 48px 16px; z-index: 50; }
+        .modal-dialog-mapel { width: 100%; max-width: 620px; }
+        .modal-dialog-mapel .card { overflow: hidden; }
+        @media (max-width: 520px) { .form-grid { grid-template-columns: 1fr; } .form-grid .field-wide { grid-column: 1 / -1; } }
+      </style>
+      <!-- Modal Tambah Mapel -->
+      <div id="mapelModal" class="modal-backdrop-mapel" style="display:none;" aria-hidden="true">
+        <div class="modal-dialog-mapel">
+          <div class="card">
+            <form method="post" action="/admin/mapel" id="mapelModalForm">
+              <div class="form-box">
+                <div class="form-grid">
+                  <label for="kodeMapel">Kode Mapel</label>
+                  <div class="input-el">
+                    <input id="kodeMapel" type="text" name="kode" placeholder="Kode mapel" required>
+                  </div>
+
+                  <label for="namaMapel">Nama Mapel</label>
+                  <div class="input-el">
+                    <input id="namaMapel" type="text" name="nama" placeholder="Nama mapel" required>
+                  </div>
+                </div>
+                <div class="actions" style="display:flex; gap:8px; align-items:center; justify-content:flex-end; margin-top:12px;">
+                  <button type="submit">Tambah Mapel</button>
+                  <button type="button" id="closeMapelModalBtn" class="pill-link">Batal</button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+      <% if (typeof imported !== 'undefined' || typeof skipped !== 'undefined' || typeof failed !== 'undefined') { %>
+        <div style="margin:8px 0; padding:8px 10px; border-radius:6px; background:#ecfdf5; color:#065f46;">
+          <% if (typeof imported !== 'undefined') { %>Berhasil impor: <%= imported %> data.<% } %>
+          <% if (typeof skipped !== 'undefined') { %> Terlewati (duplikat): <%= skipped %>.<% } %>
+          <% if (typeof failed !== 'undefined' && Number(failed) > 0) { %> Gagal: <%= failed %>.<% } %>
+        </div>
+      <% } %>
+
+      <form method="post" action="/admin/mapel/import" enctype="multipart/form-data" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin:10px 0 14px;">
+        <label style="color:#374151; font-weight:600; display:flex; align-items:center; gap:8px; margin:0;">Import CSV:
+          <input type="file" name="file" accept=".csv,text/csv" style="border:1px solid #d1d5db; border-radius:6px; background:#fff; vertical-align:middle;">
+        </label>
+        <button type="submit" style="background:#257E62; box-shadow:0 8px 18px rgba(37,126,98,.35);">Impor</button>
+      </form>
+  <form method="post" action="/admin/mapel" style="display:none;">
+        <input type="text" name="kode" placeholder="Kode mapel" required>
+        <input type="text" name="nama" placeholder="Nama mapel" required>
+        <button type="submit">Tambah Mapel</button>
+      </form>
+      <div class="header-actions" style="margin:10px 0 14px; display:flex; align-items:center; gap:10px; justify-content:space-between; flex-wrap:wrap;">
+        <div style="display:flex; gap:8px; align-items:center;">
+          <button type="button" id="toggleMapelFormBtn" class="pill-link">Tambah Mapel</button>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px; color:#4b5563;">
+          <label>Tampilkan:
+            <select id="limitSelectMapel" style="padding:6px 8px; border:1px solid #d1d5db; border-radius:6px;">
+              <option value="10" <%= (typeof limit !== 'undefined' ? String(limit)==='10' : true) ? 'selected' : '' %>>10</option>
+              <option value="50" <%= (typeof limit !== 'undefined' ? String(limit)==='50' : false) ? 'selected' : '' %>>50</option>
+              <option value="100" <%= (typeof limit !== 'undefined' ? String(limit)==='100' : false) ? 'selected' : '' %>>100</option>
+              <option value="1000" <%= (typeof limit !== 'undefined' ? String(limit)==='1000' : false) ? 'selected' : '' %>>1000</option>
+            </select>
+          </label>
+        </div>
+        <form method="get" style="display:flex; gap:8px; align-items:center; flex:1; justify-content:flex-end;">
+          <input type="text" name="q" value="<%= typeof q !== 'undefined' ? q : '' %>" placeholder="Cari nama/kode" style="padding:8px 10px; border:1px solid #d1d5db; border-radius:6px; flex:1; min-width:280px;">
+          <input type="hidden" name="limit" value="<%= typeof limit !== 'undefined' ? limit : 10 %>">
+          <input type="hidden" name="sort" value="<%= typeof sort !== 'undefined' ? sort : 'nama' %>">
+          <input type="hidden" name="order" value="<%= typeof order !== 'undefined' ? order : 'asc' %>">
+          <button type="submit">Cari</button>
+          <a class="pill-link" href="/admin/mapel">Reset</a>
+        </form>
+        <a class="pill-link" href="/assets/template_mapel.csv" download="template_mapel.csv">Unduh Template</a>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <button type="button" id="bulkDeleteMapelBtn" class="pill-link" style="background:#e11d48; color:#fff;">Hapus Terpilih</button>
+        </div>
+      </div>
+      <% if (typeof bulkDeleted !== 'undefined' || typeof bulkFailed !== 'undefined') { %>
+        <div style="margin:8px 0; padding:8px 10px; border-radius:6px; background:#ecfdf5; color:#065f46;">
+          Hapus massal — Berhasil: <%= bulkDeleted || 0 %>, Gagal: <%= bulkFailed || 0 %>
+        </div>
+      <% } %>
+      <form id="bulkDeleteMapelForm" method="post" action="/admin/mapel/bulk-delete" style="display:none;"></form>
+      <script>
+        (function(){
+          var sel = document.getElementById('limitSelectMapel');
+          if (!sel) return;
+          sel.addEventListener('change', function(){
+            var params = new URLSearchParams(window.location.search);
+            params.set('limit', this.value);
+            params.set('page', '1');
+            var url = window.location.pathname + '?' + params.toString();
+            window.location.href = url;
+          });
+        })();
+        (function(){
+          var toggleBtn = document.getElementById('toggleMapelFormBtn');
+          var backdrop = document.getElementById('mapelModal');
+          var closeBtn = document.getElementById('closeMapelModalBtn');
+          var firstInput = document.getElementById('kodeMapel');
+          function open(){ if (backdrop){ backdrop.style.display = 'flex'; setTimeout(function(){ if(firstInput) firstInput.focus(); }, 60); } }
+          function close(){ if (backdrop){ backdrop.style.display = 'none'; } }
+          if (toggleBtn) toggleBtn.addEventListener('click', open);
+          if (closeBtn) closeBtn.addEventListener('click', close);
+          if (backdrop){
+            backdrop.addEventListener('click', function(e){
+              var dlg = backdrop.querySelector('.modal-dialog-mapel');
+              if (dlg && !dlg.contains(e.target)) close();
+            });
+          }
+        })();
+      </script>
+      <table class="table-realtime">
+        <thead>
+          <tr>
+            <th><input type="checkbox" id="masterCheckMapel" title="Pilih semua"></th>
+            <th>No</th>
+            <th>
+              <a href="?sort=kode&order=<%= (typeof sort !== 'undefined' && sort==='kode' && order==='asc') ? 'desc' : 'asc' %>&limit=<%= typeof limit !== 'undefined' ? limit : 10 %><%= (typeof q !== 'undefined' && q) ? '&q=' + encodeURIComponent(q) : '' %>">Kode Mapel<%= (typeof sort !== 'undefined' && sort==='kode') ? ((typeof order !== 'undefined' && order==='desc') ? ' ▼' : ' ▲') : '' %></a>
+            </th>
+            <th>
+              <a href="?sort=nama&order=<%= (typeof sort !== 'undefined' && sort==='nama' && order==='asc') ? 'desc' : 'asc' %>&limit=<%= typeof limit !== 'undefined' ? limit : 10 %><%= (typeof q !== 'undefined' && q) ? '&q=' + encodeURIComponent(q) : '' %>">Nama Mapel<%= (typeof sort !== 'undefined' && sort==='nama') ? ((typeof order !== 'undefined' && order==='desc') ? ' ▼' : ' ▲') : '' %></a>
+            </th>
+            <th>Aksi</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% mapel.forEach((m) => { %>
+            <tr>
+              <td><input type="checkbox" class="row-check" value="<%= m.id %>" title="Pilih baris ini"></td>
+              <td><%= typeof m.no !== 'undefined' ? m.no : '-' %></td>
+              <td><%= m.kode || '-' %></td>
+              <td><%= m.nama %></td>
+              <td>
+                <div class="table-actions">
+                  <form method="post" action="/admin/mapel/edit/<%= m.id %>" onsubmit="return confirm('Simpan perubahan mapel?')">
+                    <input type="text" name="kode" value="<%= m.kode || '' %>" placeholder="Kode" class="small-input" required>
+                    <input type="text" name="nama" value="<%= m.nama %>" placeholder="Nama" class="small-input" required>
+                    <button type="submit">Edit</button>
+                  </form>
+                  <form method="post" action="/admin/mapel/delete/<%= m.id %>" onsubmit="return confirm('Hapus mapel ini?')">
+                    <button type="submit">Hapus</button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+
+      <% if (typeof page !== 'undefined' && typeof totalPages !== 'undefined') { %>
+        <div style="margin-top:12px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+          <% const startItem = (typeof totalRows !== 'undefined' && totalRows === 0) ? 0 : (((typeof page !== 'undefined' ? page : 1) - 1) * (typeof limit !== 'undefined' ? limit : 10)) + 1; %>
+          <% const endItem = (typeof totalRows !== 'undefined' ? Math.min(startItem + (typeof limit !== 'undefined' ? limit : 10) - 1, totalRows) : startItem); %>
+          <span style="color:#4b5563;">Menampilkan <%= startItem %>–<%= endItem %> dari <%= typeof totalRows !== 'undefined' ? totalRows : mapel.length %> mapel</span>
+        </div>
+      <% } %>
+
+    </main>
+  </div>
+</body></html>

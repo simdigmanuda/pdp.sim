@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="id"><head><meta charset="UTF-8"><title>Pengaturan Akun</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="/assets/admin.css">
+  <script src="/assets/admin.js" defer></script>
+</head>
+<body class="dashboard-simple">
+  <div class="layout">
+    <%- include('_sidebar') %>
+    <main class="content">
+      <div class="main-top"><a class="pill-link" href="/admin/logout">Keluar</a></div>
+               <% if (typeof isSuperAdmin !== 'undefined' && isSuperAdmin) { %>
+       <% } else { %>
+        <p class="muted">Hanya Super Admin yang dapat mengubah password.</p>
+      <% } %>
+    </section>
+
+    <!-- Kelola User Admin -->
+    <section class="card" style="border:1px solid #000000; border-radius:10px; padding:14px;">
+      <h3 style="margin-top:0;">Kelola User Admin</h3>
+
+      <% if (typeof isSuperAdmin !== 'undefined' && isSuperAdmin) { %>
+      <style>
+        .user-admin-form { display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:12px; align-items:end; margin-bottom:12px; }
+        .ua-field { display:flex; flex-direction:column; gap:6px; min-width:0; }
+        .ua-label { font-weight:700; font-size:13px; color:#374151; }
+        .ua-input { width:100%; height:40px; padding:8px 12px; border:1px solid #d1d5db; border-radius:10px; background:#fff; box-sizing:border-box; }
+        .ua-input:focus { border-color:#057159; outline:none; box-shadow:0 0 0 3px rgba(5,113,89,0.18); }
+        .ua-actions { grid-column: 1 / span 2; display:flex; gap:10px; align-items:center; justify-content:flex-start; }
+        .user-admin-form button { height:40px; min-height:40px; padding:0 16px; border-radius:12px; }
+        @media (max-width: 720px) {
+          .user-admin-form { grid-template-columns: 1fr; }
+          .ua-actions { grid-column: 1; }
+        }
+      </style>
+      <form method="post" action="/admin/pengaturan/user/add" class="user-admin-form">
+        <div class="ua-field">
+          <label class="ua-label">Username Baru</label>
+          <input type="text" name="username" required class="ua-input" placeholder="mis. admin2">
+        </div>
+        <div class="ua-field">
+          <label class="ua-label">Password</label>
+          <input type="password" name="password" minlength="6" required class="ua-input" placeholder="min 6 karakter">
+        </div>
+        <div class="ua-actions">
+          <button type="submit">Tambah</button>
+        </div>
+      </form>
+      <% } else { %>
+        <p class="muted" style="margin-bottom:12px;">Hanya Super Admin yang dapat menambah atau mereset user.</p>
+      <% } %>
+
+      <table class="table-realtime" style="width:100%;">
+        <thead>
+          <tr>
+            <th style="width:60px;">No</th>
+            <th>Username</th>
+            <th style="width:160px;">Password</th>
+            <th style="width:320px;">Reset Password</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% (users || []).forEach(function(u, idx){ %>
+            <tr>
+              <td><%= idx + 1 %></td>
+              <td><%= u.username %></td>
+              <td>••••••</td>
+              <td>
+                <% if (isSuperAdmin) { %>
+                  <form method="post" action="/admin/pengaturan/user/reset/<%= u.id %>" style="display:flex; gap:8px; align-items:center;">
+                    <input type="password" name="passwordBaru" minlength="6" required class="small-input" placeholder="password baru">
+                    <button type="submit">Reset</button>
+                  </form>
+                <% } else { %>
+                  <span class="muted">—</span>
+                <% } %>
+              </td>
+            </tr>
+          <% }) %>
+          <% if (!users || users.length === 0) { %>
+            <tr><td colspan="4" class="muted">Belum ada user.</td></tr>
+          <% } %>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="card" style="border:1px solid #e5e7eb; border-radius:10px; padding:14px;">
+      <h3 id="lokasi" style="margin-top:0;">Pengaturan Lokasi Sekolah</h3>
+      <p class="muted" style="margin:4px 0 10px;">Tambah beberapa titik lokasi (lat/lng) dengan radius dalam meter. Klik pada peta untuk menambah titik, seret marker untuk geser. Radius dapat diubah di daftar titik.</p>
+      <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+      <div id="mapLokasi" style="height:360px; border:1px solid #d1d5db; border-radius:8px; margin-bottom:12px;"></div>
+      <form id="formLokasi" method="post" action="/admin/pengaturan/lokasi">
+        <div id="listTitik" style="display:flex; flex-direction:column; gap:10px; margin-bottom:12px;"></div>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <button type="button" id="btnTambahTitik">Tambah Titik (mode klik peta)</button>
+          <button type="submit">Simpan Lokasi</button>
+        </div>
+      </form>
+      <!-- Status pesan untuk lokasi ditangani oleh toast -->
+      <script id="savedLokasiJson" type="application/json"><%- JSON.stringify(lokasi && lokasi.locations ? lokasi.locations : ((lokasi && typeof lokasi.lat==='number' && typeof lokasi.lng==='number' && typeof lokasi.radius==='number') ? [{ lat: lokasi.lat, lng: lokasi.lng, radius: lokasi.radius, name: 'Lokasi 1' }] : [])) %></script>
+      <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+      <script>
+        (function(){
+          const saved = JSON.parse(document.getElementById('savedLokasiJson')?.textContent || '[]');
+          const map = L.map('mapLokasi');
+          const center = saved.length ? [saved[0].lat, saved[0].lng] : [-6.9175, 107.6191]; // default: Bandung
+          map.setView(center, 16);
+          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap' }).addTo(map);
+
+          let addMode = false;
+          const btnAdd = document.getElementById('btnTambahTitik');
+          const list = document.getElementById('listTitik');
+          const form = document.getElementById('formLokasi');
+          const markers = [];
+
+          function renderList(){
+            list.innerHTML = '';
+            markers.forEach((m, idx) => {
+              const wrap = document.createElement('div');
+              wrap.className = 'lokasi-item';
+              const lat = m.getLatLng().lat.toFixed(6);
+              const lng = m.getLatLng().lng.toFixed(6);
+              const radius = m.__circle ? m.__circle.getRadius() : 100;
+              const nameVal = (typeof m.__name === 'string' && m.__name.trim().length) ? m.__name : `Lokasi ${idx+1}`;
+              wrap.innerHTML = `
+                <label>Nama Lokasi<br><input name="name[]" value="${nameVal}" class="small-input"></label>
+                <label>Lat<br><input name="lat[]" value="${lat}" class="small-input"></label>
+                <label>Lng<br><input name="lng[]" value="${lng}" class="small-input"></label>
+                <label>Radius (m)<br><input name="radius[]" value="${radius}" class="small-input" type="number" min="1" step="1"></label>
+                <button type="button" class="pill-link pill-danger">Hapus</button>
+              `;
+              const btnDel = wrap.querySelector('button');
+              btnDel.addEventListener('click', () => { map.removeLayer(m.__circle); map.removeLayer(m); markers.splice(idx,1); renderList(); });
+              const nameInput = wrap.querySelector('input[name="name[]"]');
+              const latInput = wrap.querySelector('input[name="lat[]"]');
+              const lngInput = wrap.querySelector('input[name="lng[]"]');
+              const radInput = wrap.querySelector('input[name="radius[]"]');
+              nameInput.addEventListener('input', () => { m.__name = nameInput.value; if (m.__tooltip) { m.__tooltip.setContent(m.__name || `Lokasi ${idx+1}`); } });
+              latInput.addEventListener('change', () => { const lt = parseFloat(latInput.value); const ll = m.getLatLng(); if (Number.isFinite(lt)) { m.setLatLng([lt, ll.lng]); m.__circle.setLatLng([lt, ll.lng]); }});
+              lngInput.addEventListener('change', () => { const lg = parseFloat(lngInput.value); const ll = m.getLatLng(); if (Number.isFinite(lg)) { m.setLatLng([ll.lat, lg]); m.__circle.setLatLng([ll.lat, lg]); }});
+              radInput.addEventListener('change', () => { const r = parseFloat(radInput.value); if (Number.isFinite(r) && r>0) { m.__circle.setRadius(r); }});
+              list.appendChild(wrap);
+            });
+          }
+
+          function addMarker(lat, lng, radius, name){
+            const marker = L.marker([lat, lng], { draggable: true }).addTo(map);
+            const circle = L.circle([lat, lng], { radius: radius || 100, color: '#2563eb' }).addTo(map);
+            marker.__circle = circle;
+            marker.__name = (typeof name === 'string' && name.trim().length) ? name.trim() : '';
+            marker.__tooltip = marker.bindTooltip(marker.__name || 'Lokasi', { permanent: true, direction: 'top', opacity: 0.8 });
+            marker.on('dragend', () => { const ll = marker.getLatLng(); circle.setLatLng(ll); renderList(); });
+            markers.push(marker);
+            renderList();
+          }
+
+          // Init from saved
+          saved.forEach(p => addMarker(p.lat, p.lng, p.radius, p.name));
+
+          btnAdd.addEventListener('click', () => {
+            addMode = !addMode;
+            btnAdd.textContent = addMode ? 'Klik di peta untuk menambah titik (Matikan)' : 'Tambah Titik (mode klik peta)';
+            btnAdd.style.background = addMode ? '#10b981' : '#2563eb';
+          });
+
+          map.on('click', (e) => { if (addMode) addMarker(e.latlng.lat, e.latlng.lng, 100, ''); });
+
+          form.addEventListener('submit', (ev) => {
+            if (markers.length === 0) {
+              ev.preventDefault();
+              alert('Tambahkan minimal satu titik pada peta.');
+            }
+          });
+        })();
+      </script>
+    </section>
+  </div>
+    </main>
+  </div>
+  <!-- Flash dari server untuk notifikasi toast -->
+  <script id="serverFlash" type="application/json">
+    {
+      "error": <%- JSON.stringify(typeof error !== 'undefined' ? error : null) %>,
+      "success": <%- JSON.stringify(typeof success !== 'undefined' ? success : null) %>,
+      "errorLokasi": <%- JSON.stringify(typeof errorLokasi !== 'undefined' ? errorLokasi : null) %>,
+      "successLokasi": <%- JSON.stringify(typeof successLokasi !== 'undefined' ? successLokasi : null) %>
+    }
+  </script>
+</body></html>

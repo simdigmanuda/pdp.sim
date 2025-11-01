@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="id"><head><meta charset="UTF-8"><title>Dashboard — SMK Ma'arif NU 2 Ajibarang</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="/assets/admin.css">
+  <script src="/assets/admin.js" defer></script>
+</head>
+<body class="dashboard-simple">
+  <div class="layout">
+    <%- include('_sidebar') %>
+
+    <main class="content">
+      <div class="main-top"><a class="pill-link" href="/admin/logout">Keluar</a></div>
+
+      <section class="grid">
+        <a class="card card-link card-soft-sky" href="/admin/guru">
+          <div class="metric">Total Guru</div>
+          <div class="value"><%= typeof totalGuru !== 'undefined' ? totalGuru : 0 %></div>
+        </a>
+        <a class="card card-link card-soft-teal" href="/admin/kelas">
+          <div class="metric">Jumlah Kelas</div>
+          <div class="value"><%= typeof totalKelas !== 'undefined' ? totalKelas : 0 %></div>
+        </a>
+        <a class="card card-link card-soft-violet" href="/admin/mapel">
+          <div class="metric">Mata Pelajaran</div>
+          <div class="value"><%= typeof totalMapel !== 'undefined' ? totalMapel : 0 %></div>
+        </a>
+        <a class="card card-link card-soft-amber" href="/admin/laporan">
+          <div class="metric">Dokumen Minggu Ini</div>
+          <div class="value"><%= typeof docsThisWeek !== 'undefined' ? docsThisWeek : 0 %></div>
+        </a>
+        <a class="card card-link card-soft-emerald" href="/admin/realtime">
+          <div class="metric">Guru Aktif Hari Ini</div>
+          <div class="value"><%= typeof todayActiveGuruCount !== 'undefined' ? todayActiveGuruCount : 0 %></div>
+        </a>
+        <div class="card card-soft-indigo">
+          <div class="metric">Jumlah Jam Hari Ini</div>
+          <div class="value"><%= typeof jamHariIni !== 'undefined' ? jamHariIni : 0 %></div>
+        </div>
+        <div class="card card-soft-cyan">
+          <div class="metric">Foto Menit Ini (Sudah)</div>
+          <div class="value"><%= typeof sudahFotoMinuteCount !== 'undefined' ? sudahFotoMinuteCount : 0 %></div>
+        </div>
+        <div class="card card-soft-rose">
+          <div class="metric">Foto Menit Ini (Belum)</div>
+          <div class="value"><%= typeof belumFotoMinuteCount !== 'undefined' ? belumFotoMinuteCount : 0 %></div>
+        </div>
+      </section>
+
+      <section class="dashboard-row">
+
+        <div class="chart-card">
+          <div class="card-title">Foto Terbaru</div>
+          <% if (Array.isArray(latestPhotos) && latestPhotos.length) { %>
+            <div class="photo-slider" id="latestPhotoSlider">
+               <% latestPhotos.forEach(function(p, idx){ %>
+                 <figure class="slide-item <%= idx === 0 ? 'active' : '' %>">
+                   <img src="/<%= p.fotoPath %>" alt="Foto terbaru" />
+                   <figcaption><%= p.guru?.nama || '' %> · <%= p.kelas?.nama || '' %> · <%= p.mapel?.kode || p.mapel?.nama || '' %></figcaption>
+                 </figure>
+               <% }) %>
+             </div>
+              <script>
+                (function(){
+                  const slider = document.getElementById('latestPhotoSlider');
+                  if (!slider) return;
+                  const slides = Array.from(slider.querySelectorAll('.slide-item'));
+                  if (slides.length <= 1) return;
+                  let idx = 0;
+                  function show(i){ slides.forEach((el, k) => el.classList.toggle('active', k === i)); }
+                  show(0);
+                  setInterval(() => {
+                    idx = (idx + 1) % slides.length;
+                    show(idx);
+                  }, 4000);
+                })();
+              </script>
+          <% } else { %>
+            <div class="photo-empty">Belum ada foto</div>
+          <% } %>
+        </div>
+
+        <div class="activity-card">
+          <div class="card-title">Realtime (Sekilas)</div>
+          <ul class="activity-list">
+            <% if (Array.isArray(invalidsToday) && invalidsToday.length) { %>
+              <% invalidsToday.forEach(function(x){ 
+                   const createdAt = new Date(x.createdAt);
+                   const diffMin = Math.max(1, Math.floor((Date.now() - createdAt.getTime()) / 60000));
+                   const rel = diffMin < 60 ? diffMin + 'm' : diffMin < 1440 ? Math.floor(diffMin / 60) + 'h' : Math.floor(diffMin / 1440) + 'd';
+                %>
+                <li>
+                  <%= x.guru?.nama || 'Guru' %> · <%= x.kelas?.nama || '-' %> · <%= x.mapel?.kode || (x.mapel?.nama || '-') %>
+                  · <span style="color:#b91c1c;">Lokasi tidak sesuai</span> · <%= rel %>
+                </li>
+              <% }) %>
+            <% } else { %>
+              <li>Tidak ada data lokasi tidak sesuai hari ini.</li>
+            <% } %>
+          </ul>
+        </div>
+      </section>
+
+
+    </main>
+  </div>
+</body></html>

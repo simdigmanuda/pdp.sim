@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="id"><head><meta charset="UTF-8"><title>Kelola Kelas</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="/assets/admin.css">
+  <script src="/assets/admin.js" defer></script>
+</head>
+<body class="dashboard-simple">
+  <div class="layout">
+    <%- include('_sidebar') %>
+    <main class="content">
+      <div class="main-top"><a class="pill-link" href="/admin/logout">Keluar</a></div>
+      <h2>Kelola Kelas</h2>
+      <style>
+        .form-box { max-width: 620px; margin: 0 auto 16px; }
+        .form-grid { display: grid; grid-template-columns: 160px 1fr; column-gap: 16px; row-gap: 12px; align-items: center; }
+        .form-grid label { margin: 0; font-weight: 700; font-size: 13px; color: #374151; }
+        .form-grid .input-el input, .form-grid .input-el select { width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 10px; background: #fafafa; box-sizing: border-box; }
+        .form-grid .input-el input:focus, .form-grid .input-el select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,0.15); background: #fff; }
+        .modal-backdrop-kelas { position: fixed; inset: 0; background: rgba(17,24,39,0.35); display: flex; align-items: flex-start; justify-content: center; padding: 48px 16px; z-index: 50; }
+        .modal-dialog-kelas { width: 100%; max-width: 620px; }
+        .modal-dialog-kelas .card { overflow: hidden; }
+        @media (max-width: 520px) { .form-grid { grid-template-columns: 1fr; } }
+      </style>
+      <!-- Modal Tambah Kelas -->
+      <div id="kelasModal" class="modal-backdrop-kelas" style="display:none;" aria-hidden="true">
+        <div class="modal-dialog-kelas">
+          <div class="card">
+            <form method="post" action="/admin/kelas" id="kelasModalForm">
+              <div class="form-box">
+                <div class="form-grid">
+                  <label for="tingkatKelas">Tingkat</label>
+                  <div class="input-el">
+                    <select id="tingkatKelas" name="tingkat" required>
+                      <option value="">Tingkat</option>
+                      <option value="X">X</option>
+                      <option value="XI">XI</option>
+                      <option value="XII">XII</option>
+                    </select>
+                  </div>
+                  <label for="kodeKelas">Kode Kelas</label>
+                  <div class="input-el">
+                    <input id="kodeKelas" type="text" name="kode" required placeholder="Kode kelas">
+                  </div>
+                  <label for="namaKelas">Nama Kelas</label>
+                  <div class="input-el">
+                    <input id="namaKelas" type="text" name="nama" required placeholder="Nama kelas">
+                  </div>
+                </div>
+                <div class="actions" style="display:flex; gap:8px; align-items:center; justify-content:flex-end; margin-top:12px;">
+                  <button type="submit">Tambah Kelas</button>
+                  <button type="button" id="closeKelasModalBtn" class="pill-link">Batal</button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+      <form method="post" action="/admin/kelas" style="display:none;">
+        <select name="tingkat" required>
+          <option value="">Tingkat</option>
+          <option value="X">X</option>
+          <option value="XI">XI</option>
+          <option value="XII">XII</option>
+        </select>
+        <input type="text" name="kode" placeholder="Kode kelas" required>
+        <input type="text" name="nama" placeholder="Nama kelas" required>
+        <button type="submit">Tambah Kelas</button>
+      </form>
+      <script>
+        (function(){
+          function gabungNama(tingkat, kode){
+            const t = String(tingkat || '').trim();
+            const k = String(kode || '').trim();
+            if (!t && !k) return '';
+            return t && k ? (t + ' ' + k) : (t || k);
+          }
+          // Form tambah kelas di dalam modal
+          const addForm = document.querySelector('#kelasModal form[action="/admin/kelas"]');
+          if (addForm){
+            const tingkatEl = addForm.querySelector('select[name="tingkat"]');
+            const kodeEl = addForm.querySelector('input[name="kode"]');
+            const namaEl = addForm.querySelector('input[name="nama"]');
+            const sync = () => { if (namaEl) namaEl.value = gabungNama(tingkatEl && tingkatEl.value, kodeEl && kodeEl.value); };
+            if (tingkatEl && kodeEl && namaEl){
+              tingkatEl.addEventListener('input', sync);
+              kodeEl.addEventListener('input', sync);
+              // sinkron awal
+              sync();
+            }
+          }
+          // Form edit kelas per baris
+          document.querySelectorAll('form[action^="/admin/kelas/edit/"]').forEach(form => {
+            const tingkatEl = form.querySelector('select[name="tingkat"]');
+            const kodeEl = form.querySelector('input[name="kode"]');
+            const namaEl = form.querySelector('input[name="nama"]');
+            const sync = () => { if (namaEl) namaEl.value = gabungNama(tingkatEl && tingkatEl.value, kodeEl && kodeEl.value); };
+            if (tingkatEl && kodeEl && namaEl){
+              tingkatEl.addEventListener('input', sync);
+              kodeEl.addEventListener('input', sync);
+            }
+          });
+
+          // Toggle modal Tambah Kelas
+          var toggleBtn = document.getElementById('toggleKelasFormBtn');
+          var backdrop = document.getElementById('kelasModal');
+          var closeBtn = document.getElementById('closeKelasModalBtn');
+          var firstInput = document.getElementById('tingkatKelas');
+          function open(){ if (backdrop){ backdrop.style.display = 'flex'; setTimeout(function(){ if(firstInput) firstInput.focus(); }, 60); } }
+          function close(){ if (backdrop){ backdrop.style.display = 'none'; } }
+          if (toggleBtn) toggleBtn.addEventListener('click', open);
+          if (closeBtn) closeBtn.addEventListener('click', close);
+          if (backdrop){
+            backdrop.addEventListener('click', function(e){
+              var dlg = backdrop.querySelector('.modal-dialog-kelas');
+              if (dlg && !dlg.contains(e.target)) close();
+            });
+          }
+        })();
+      </script>
+      <div class="header-actions" style="margin:10px 0 14px; display:flex; align-items:center; gap:10px; justify-content:space-between; flex-wrap:wrap;">
+        <div style="display:flex; gap:8px; align-items:center;">
+          <button type="button" id="toggleKelasFormBtn" class="pill-link">Tambah Kelas</button>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px; color:#4b5563;">
+          <label>Tampilkan:
+            <select id="limitSelectKelas" style="padding:6px 8px; border:1px solid #d1d5db; border-radius:6px;">
+              <option value="20" <%= (typeof limit !== 'undefined' ? String(limit)==='20' : true) ? 'selected' : '' %>>20</option>
+              <option value="50" <%= (typeof limit !== 'undefined' ? String(limit)==='50' : false) ? 'selected' : '' %>>50</option>
+              <option value="100" <%= (typeof limit !== 'undefined' ? String(limit)==='100' : false) ? 'selected' : '' %>>100</option>
+              <option value="1000" <%= (typeof limit !== 'undefined' ? String(limit)==='1000' : false) ? 'selected' : '' %>>1000</option>
+            </select>
+          </label>
+        </div>
+        <form method="get" style="display:flex; gap:8px; align-items:center; flex:1; justify-content:flex-end;">
+          <input type="text" name="q" value="<%= typeof q !== 'undefined' ? q : '' %>" placeholder="Cari tingkat/kode/nama" style="padding:8px 10px; border:1px solid #d1d5db; border-radius:6px; flex:1; min-width:280px;">
+          <input type="hidden" name="limit" value="<%= typeof limit !== 'undefined' ? limit : 20 %>">
+          <input type="hidden" name="sort" value="<%= typeof sort !== 'undefined' ? sort : 'tingkat' %>">
+          <input type="hidden" name="order" value="<%= typeof order !== 'undefined' ? order : 'asc' %>">
+          <button type="submit">Cari</button>
+          <a class="pill-link" href="/admin/kelas">Reset</a>
+        </form>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <button type="button" id="bulkDeleteKelasBtn" class="pill-link" style="background:#e11d48; color:#fff;">Hapus Terpilih</button>
+        </div>
+      </div>
+      <% if (typeof bulkDeleted !== 'undefined' || typeof bulkFailed !== 'undefined') { %>
+        <div style="margin:8px 0; padding:8px 10px; border-radius:6px; background:#ecfdf5; color:#065f46;">
+          Hapus massal — Berhasil: <%= bulkDeleted || 0 %>, Gagal: <%= bulkFailed || 0 %>
+        </div>
+      <% } %>
+      <form id="bulkDeleteKelasForm" method="post" action="/admin/kelas/bulk-delete" style="display:none;"></form>
+      <script>
+        (function(){
+          var sel = document.getElementById('limitSelectKelas');
+          if (!sel) return;
+          sel.addEventListener('change', function(){
+            var params = new URLSearchParams(window.location.search);
+            params.set('limit', this.value);
+            params.set('page', '1');
+            var url = window.location.pathname + '?' + params.toString();
+            window.location.href = url;
+          });
+        })();
+      </script>
+      <table class="table-realtime">
+        <thead>
+          <tr>
+            <th><input type="checkbox" id="masterCheckKelas" title="Pilih semua"></th>
+            <th>No</th>
+            <th>
+              <a href="?sort=tingkat&order=<%= (typeof sort !== 'undefined' && sort==='tingkat' && order==='asc') ? 'desc' : 'asc' %>&limit=<%= typeof limit !== 'undefined' ? limit : 20 %><%= (typeof q !== 'undefined' && q) ? '&q=' + encodeURIComponent(q) : '' %>">Tingkat<%= (typeof sort !== 'undefined' && sort==='tingkat') ? ((typeof order !== 'undefined' && order==='desc') ? ' ▼' : ' ▲') : '' %></a>
+            </th>
+            <th>
+              <a href="?sort=nama&order=<%= (typeof sort !== 'undefined' && sort==='nama' && order==='asc') ? 'desc' : 'asc' %>&limit=<%= typeof limit !== 'undefined' ? limit : 20 %><%= (typeof q !== 'undefined' && q) ? '&q=' + encodeURIComponent(q) : '' %>">Nama Kelas<%= (typeof sort !== 'undefined' && sort==='nama') ? ((typeof order !== 'undefined' && order==='desc') ? ' ▼' : ' ▲') : '' %></a>
+            </th>
+            <th>
+              <a href="?sort=kode&order=<%= (typeof sort !== 'undefined' && sort==='kode' && order==='asc') ? 'desc' : 'asc' %>&limit=<%= typeof limit !== 'undefined' ? limit : 20 %><%= (typeof q !== 'undefined' && q) ? '&q=' + encodeURIComponent(q) : '' %>">Kode Kelas<%= (typeof sort !== 'undefined' && sort==='kode') ? ((typeof order !== 'undefined' && order==='desc') ? ' ▼' : ' ▲') : '' %></a>
+            </th>
+            <th>Aksi</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% kelas.forEach((k) => { %>
+            <tr>
+              <td><input type="checkbox" class="row-check" value="<%= k.id %>" title="Pilih baris ini"></td>
+              <td><%= typeof k.no !== 'undefined' ? k.no : '-' %></td>
+              <td><%= k.tingkat || '-' %></td>
+              <td><%= k.nama %></td>
+              <td><%= k.kode || '-' %></td>
+              <td>
+                <div class="table-actions">
+                  <form method="post" action="/admin/kelas/edit/<%= k.id %>" onsubmit="return confirm('Simpan perubahan kelas?')">
+                    <select name="tingkat" class="small-input" required>
+                      <option value="X" <%= k.tingkat==='X'?'selected':'' %>>X</option>
+                      <option value="XI" <%= k.tingkat==='XI'?'selected':'' %>>XI</option>
+                      <option value="XII" <%= k.tingkat==='XII'?'selected':'' %>>XII</option>
+                    </select>
+                    <input type="text" name="kode" value="<%= k.kode || '' %>" placeholder="Kode" class="small-input" required>
+                    <input type="text" name="nama" value="<%= k.nama %>" placeholder="Nama" class="small-input" required>
+                    <button type="submit">Edit</button>
+                  </form>
+                  <form method="post" action="/admin/kelas/delete/<%= k.id %>" onsubmit="return confirm('Hapus kelas ini?')">
+                    <button type="submit">Hapus</button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+      <% if (typeof page !== 'undefined' && typeof totalPages !== 'undefined') { %>
+        <div style="margin-top:12px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+          <% const startItem = (typeof totalRows !== 'undefined' && totalRows === 0) ? 0 : (((typeof page !== 'undefined' ? page : 1) - 1) * (typeof limit !== 'undefined' ? limit : 20)) + 1; %>
+          <% const endItem = (typeof totalRows !== 'undefined' ? Math.min(startItem + (typeof limit !== 'undefined' ? limit : 20) - 1, totalRows) : startItem); %>
+          <span style="color:#4b5563;">Menampilkan <%= startItem %>–<%= endItem %> dari <%= typeof totalRows !== 'undefined' ? totalRows : kelas.length %> kelas</span>
+        </div>
+      <% } %>
+    </main>
+  </div>
+</body></html>

@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="id"><head><meta charset="UTF-8"><title>Alokasi Jam Belajar</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="/assets/admin.css">
+  <script src="/assets/admin.js" defer></script>
+</head>
+<body class="dashboard-simple">
+  <div class="layout">
+    <%- include('_sidebar') %>
+    <main class="content">
+      <div class="main-top"><a class="pill-link" href="/admin/logout">Keluar</a></div>
+      <h2>Alokasi Jam Belajar</h2>
+      <style>
+        /* Samakan tampilan dengan Form Input Jadwal (Form) */
+        .form-box { max-width: 920px; margin: 0 auto 16px; }
+        .form-grid { display: grid; grid-template-columns: 180px 1fr; column-gap: 16px; row-gap: 12px; align-items: center; }
+        .form-grid label { margin: 0; font-weight: 700; font-size: 13px; color: #374151; }
+        .form-grid .input-el select, .form-grid .input-el input { width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 10px; background: #fafafa; box-sizing: border-box; }
+.form-grid .input-el input:focus, .form-grid .input-el select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(5,113,89,0.18); background: #fff; }
+        .form-grid .field-wide { grid-column: 1 / -1; }
+        .actions { display:flex; gap:8px; align-items:center; margin-top:10px; max-width: 920px; margin-left:auto; margin-right:auto; justify-content: flex-end; }
+        .form-box.hidden { display: none; }
+        /* Modal overlay untuk Alokasi */
+        .modal-backdrop-alokasi { position: fixed; inset: 0; background: rgba(17,24,39,0.35); display: flex; align-items: flex-start; justify-content: center; padding: 48px 16px; z-index: 50; }
+        .modal-backdrop-alokasi.hidden { display: none; }
+        .modal-dialog-alokasi { width: 100%; max-width: 920px; }
+.modal-dialog-alokasi .card { overflow: hidden; }
+        .modal-actions { display:flex; gap:8px; align-items:center; justify-content:flex-end; margin-top:12px; }
+        /* Compact filters: persempit jarak dan tombol */
+        .day-filter, .jam-filter { margin: 4px 0 8px !important; gap: 6px !important; }
+        .day-filter label, .jam-filter label { gap: 4px !important; }
+        .day-filter .pill-link, .jam-filter .pill-link { padding: 6px 10px !important; box-shadow: 0 6px 12px rgba(5,113,89,.28); }
+      </style>
+      <% const curSort = (typeof sort !== 'undefined' ? String(sort) : 'hari');
+         const curOrder = (typeof order !== 'undefined' ? String(order).toLowerCase() : 'asc');
+         const curLimit = (typeof limit !== 'undefined' ? String(limit) : '10');
+         const curQ = (typeof q !== 'undefined' ? q : '');
+         const curPage = (typeof page !== 'undefined' ? String(page) : '1'); %>
+  <form method="post" action="/admin/alokasi" class="form-alokasi">
+    <% const hariMap = ['Ahad','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu']; %>
+    <!-- Bar aksi atas: (dihapus, tombol Tambah dipindah ke header actions) -->
+    <!-- Modal Overlay: Form Alokasi muncul di depan -->
+    <div id="alokasiModal" class="modal-backdrop-alokasi hidden" aria-hidden="true">
+      <div class="modal-dialog-alokasi">
+        <div class="card form-box" role="dialog" aria-modal="true" aria-labelledby="alokasiModalTitle">
+          <div class="form-grid">
+            <label id="alokasiModalTitle">Hari</label>
+            <div class="input-el">
+              <div class="days-grid">
+                <% for (let i=0;i<7;i++){ %>
+                  <label class="day-item">
+                    <input type="checkbox" name="hari[]" value="<%= i %>">
+                    <span><%= hariMap[i] %></span>
+                  </label>
+                <% } %>
+              </div>
+            </div>
+
+            <label for="mulai">Mulai</label>
+            <div class="input-el">
+              <input id="mulai" type="text" name="mulai" required class="time-input" inputmode="numeric" placeholder="HH:MM" maxlength="5" pattern="^([01]\\d|2[0-3]):([0-5]\\d)$" title="Masukkan waktu 24 jam: HH:MM">
+              <small class="hint">Format 24 jam</small>
+            </div>
+
+            <label for="selesai">Selesai</label>
+            <div class="input-el">
+              <input id="selesai" type="text" name="selesai" required class="time-input" inputmode="numeric" placeholder="HH:MM" maxlength="5" pattern="^([01]\\d|2[0-3]):([0-5]\\d)$" title="Masukkan waktu 24 jam: HH:MM">
+              <small class="hint">Harus lebih besar dari waktu mulai</small>
+            </div>
+
+            <label for="jamKe">Jam Ke</label>
+            <div class="input-el">
+              <select id="jamKe" name="jamKe" required class="select-input">
+                <option value="">Pilih</option>
+                <% for (let i=1;i<=12;i++){ %>
+                  <option value="<%= i %>"><%= i %></option>
+                <% } %>
+              </select>
+            </div>
+
+            <label class="field-wide" for="keterangan">Keterangan</label>
+            <div class="input-el field-wide">
+              <input id="keterangan" type="text" name="keterangan" placeholder="opsional">
+            </div>
+          </div>
+          <div class="modal-actions">
+            <button type="submit">Tambah Alokasi</button>
+            <button type="button" id="closeAlokasiModalBtn" class="pill-link">Tutup</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </form>
+  <script>
+    document.addEventListener('DOMContentLoaded', function(){
+      var toggleBtn = document.getElementById('toggleAlokasiFormBtn');
+      var modal = document.getElementById('alokasiModal');
+      var closeBtn = document.getElementById('closeAlokasiModalBtn');
+      if (toggleBtn && modal) {
+        toggleBtn.addEventListener('click', function(){
+          modal.classList.remove('hidden');
+          setTimeout(function(){ var first = document.getElementById('mulai'); if (first) first.focus(); }, 60);
+        });
+      }
+      // Tutup dengan tombol Escape
+      document.addEventListener('keydown', function(e){
+        if (e.key === 'Escape' && modal && !modal.classList.contains('hidden')) {
+          modal.classList.add('hidden');
+        }
+      });
+      if (closeBtn && modal) {
+        closeBtn.addEventListener('click', function(){
+          modal.classList.add('hidden');
+        });
+      }
+      // Tutup saat klik backdrop di luar card
+      if (modal) {
+        modal.addEventListener('click', function(e){
+          var dlg = document.querySelector('.modal-dialog-alokasi .card');
+          if (!dlg) return;
+          if (!dlg.contains(e.target)) {
+            modal.classList.add('hidden');
+          }
+        });
+      }
+    });
+  </script>
+  <% if (typeof editing !== 'undefined' && editing) { %>
+    <div class="modal-backdrop" id="editModalBackdrop">
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="editModalTitle">
+        <div class="modal-header">
+          <h3 id="editModalTitle" style="margin:0;">Edit Alokasi (ID <%= editing.id %>)</h3>
+          <button type="button" class="modal-close" title="Tutup" aria-label="Tutup" data-modal-close>&times;</button>
+        </div>
+        <form method="post" action="/admin/alokasi/edit/<%= editing.id %>" class="form-alokasi-edit">
+          <div class="field">
+            <label>Hari</label>
+            <select name="hari" required class="select-input">
+              <% for (let i=0;i<7;i++){ %>
+                <option value="<%= i %>" <%= (editing.hari===i) ? 'selected' : '' %>><%= hariMap[i] %></option>
+              <% } %>
+            </select>
+          </div>
+          <% function toHHMM(m){ return `${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}` } %>
+          <div class="field">
+            <label>Mulai</label>
+            <input type="text" name="mulai" required class="time-input" inputmode="numeric" maxlength="5" pattern="^([01]\\d|2[0-3]):([0-5]\\d)$" value="<%= toHHMM(editing.mulaiMenit) %>">
+          </div>
+          <div class="field">
+            <label>Selesai</label>
+            <input type="text" name="selesai" required class="time-input" inputmode="numeric" maxlength="5" pattern="^([01]\\d|2[0-3]):([0-5]\\d)$" value="<%= toHHMM(editing.selesaiMenit) %>">
+          </div>
+          <div class="field">
+            <label>Jam Ke</label>
+            <select name="jamKe" class="select-input">
+              <option value="">(kosongkan untuk istirahat)</option>
+              <% for (let i=1;i<=12;i++){ %>
+                <option value="<%= i %>" <%= (editing.jamKe===i) ? 'selected' : '' %>><%= i %></option>
+              <% } %>
+            </select>
+          </div>
+          <div class="field field-wide">
+            <label>Keterangan</label>
+            <input type="text" name="keterangan" placeholder="opsional" value="<%= editing.keterangan || '' %>">
+          </div>
+          <div class="field field-actions" style="display:flex; gap:8px;">
+            <button type="submit">Simpan</button>
+            <a class="pill-link" href="/admin/alokasi" data-modal-close>Batal</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  <% } %>
+      <!-- Header dua kolom: kiri tombol aksi, kanan form pencarian -->
+      <div class="header-two-cols" style="margin:10px 0 14px; display:grid; grid-template-columns: 1fr 1fr; gap:8px; align-items:center;">
+        <!-- Kolom kiri: tombol aksi -->
+        <div class="header-left-actions" style="display:flex; gap:8px; align-items:center; justify-content:flex-start; flex-wrap:wrap;">
+          <button type="button" id="toggleAlokasiFormBtn" class="pill-link">Tambah Alokasi</button>
+          <button type="button" id="bulkDeleteAlokasiBtn" class="pill-link" style="background:#e11d48; color:#fff;">Hapus Terpilih</button>
+        </div>
+        <!-- Kolom kanan: form pencarian -->
+        <form method="get" class="header-right-search" style="display:flex; gap:8px; align-items:center; justify-content:flex-end; flex-wrap:wrap;">
+          <input type="text" name="q" value="<%= curQ %>" placeholder="Cari hari/jam ke/keterangan" style="padding:8px 10px; border:1px solid #d1d5db; border-radius:6px; width:100%; max-width:320px; min-width:0;">
+          <input type="hidden" name="limit" value="<%= curLimit %>">
+          <input type="hidden" name="sort" value="<%= curSort %>">
+          <input type="hidden" name="order" value="<%= curOrder %>">
+          <button type="submit">Cari</button>
+          <a class="pill-link" href="/admin/alokasi">Reset</a>
+        </form>
+      </div>
+      <% if (typeof bulkDeleted !== 'undefined' || typeof bulkFailed !== 'undefined') { %>
+        <div style="margin:8px 0; padding:8px 10px; border-radius:6px; background:#ecfdf5; color:#065f46;">
+          Hapus massal — Berhasil: <%= bulkDeleted || 0 %>, Gagal: <%= bulkFailed || 0 %>
+        </div>
+      <% } %>
+      <form id="bulkDeleteAlokasiForm" method="post" action="/admin/alokasi/bulk-delete" style="display:none;"></form>
+
+      <!-- Handler global di public/assets/admin.js akan menangani perubahan limit -->
+      <!-- Filter Hari (Senin–Sabtu) -->
+      <% const selDays = (Array.isArray(selectedDays) ? selectedDays : []); %>
+      <form method="get" class="day-filter" style="margin:8px 0 12px; display:flex; align-items:center; gap:10px; flex-wrap:wrap; color:#374151;">
+        <span style="font-weight:600;">Filter Hari:</span>
+        <% const dayNames = ['Ahad','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu']; %>
+        <% for (let i=1;i<=6;i++){ %>
+          <label style="display:flex; align-items:center; gap:6px;">
+            <input type="checkbox" name="days" value="<%= i %>" <%= selDays.includes(i) ? 'checked' : '' %>>
+            <span><%= dayNames[i] %></span>
+          </label>
+        <% } %>
+        <input type="hidden" name="limit" value="<%= curLimit %>">
+        <input type="hidden" name="sort" value="<%= curSort %>">
+        <input type="hidden" name="order" value="<%= curOrder %>">
+        <input type="hidden" name="q" value="<%= curQ %>">
+        <input type="hidden" name="page" value="1">
+        <button type="submit" class="pill-link">Terapkan</button>
+        <a class="pill-link" href="?limit=<%= curLimit %>&sort=<%= curSort %>&order=<%= curOrder %>&page=1<%= (curQ ? '&q=' + encodeURIComponent(curQ) : '') %>">Reset Hari</a>
+      </form>
+
+      <!-- Filter Jam Ke (1–10) -->
+      <% const selJam = (Array.isArray(selectedJam) ? selectedJam : []); %>
+      <form method="get" class="jam-filter" style="margin:6px 0 14px; display:flex; align-items:center; gap:10px; flex-wrap:wrap; color:#374151;">
+        <span style="font-weight:600;">Filter Jam Ke:</span>
+        <% for (let j=1;j<=10;j++){ %>
+          <label style="display:flex; align-items:center; gap:6px;">
+            <input type="checkbox" name="jam" value="<%= j %>" <%= selJam.includes(j) ? 'checked' : '' %>>
+            <span><%= j %></span>
+          </label>
+        <% } %>
+        <!-- Pertahankan filter hari saat menerapkan filter jam -->
+        <% (selDays || []).forEach(function(d){ %>
+          <input type="hidden" name="days" value="<%= d %>">
+        <% }); %>
+        <input type="hidden" name="limit" value="<%= curLimit %>">
+        <input type="hidden" name="sort" value="<%= curSort %>">
+        <input type="hidden" name="order" value="<%= curOrder %>">
+        <input type="hidden" name="q" value="<%= curQ %>">
+        <input type="hidden" name="page" value="1">
+        <button type="submit" class="pill-link">Terapkan</button>
+        <a class="pill-link" href="?limit=<%= curLimit %>&sort=<%= curSort %>&order=<%= curOrder %>&page=1<%= (curQ ? '&q=' + encodeURIComponent(curQ) : '') %><%= (selDays && selDays.length ? ('&'+selDays.map(function(d){return 'days='+encodeURIComponent(String(d));}).join('&')) : '') %>">Reset Jam</a>
+      </form>
+      <!-- Toolbar tabel: tempatkan 'Tampilkan' di sini agar selaras dengan tabel -->
+      <div class="table-actions" style="margin:8px 0; justify-content:flex-start;">
+        <label style="display:flex; align-items:center; gap:6px; color:#4b5563;">
+          <span>Tampilkan:</span>
+          <select id="limitSelectAlokasi" style="padding:6px 8px; border:1px solid #d1d5db; border-radius:6px;">
+            <option value="10" <%= (curLimit === '10') ? 'selected' : '' %>>10</option>
+            <option value="50" <%= (curLimit === '50') ? 'selected' : '' %>>50</option>
+            <option value="100" <%= (curLimit === '100') ? 'selected' : '' %>>100</option>
+            <option value="1000" <%= (curLimit === '1000') ? 'selected' : '' %>>1000</option>
+          </select>
+        </label>
+      </div>
+      <table class="table-realtime">
+    <thead>
+      <tr>
+        <th><input type="checkbox" id="masterCheckAlokasi" title="Pilih semua"></th>
+        <th>
+          <a href="?sort=hari&order=<%= (curSort==='hari' && curOrder==='asc') ? 'desc' : 'asc' %>&limit=<%= curLimit %>&page=<%= curPage %><%= (curQ ? '&q=' + encodeURIComponent(curQ) : '') %>">Hari<%= (curSort==='hari') ? (curOrder==='desc' ? ' ↓' : ' ↑') : '' %></a>
+        </th>
+        <th>
+          <a href="?sort=jamKe&order=<%= (curSort==='jamKe' && curOrder==='asc') ? 'desc' : 'asc' %>&limit=<%= curLimit %>&page=<%= curPage %><%= (curQ ? '&q=' + encodeURIComponent(curQ) : '') %>">Jam Ke<%= (curSort==='jamKe') ? (curOrder==='desc' ? ' ↓' : ' ↑') : '' %></a>
+        </th>
+        <th>
+          <a href="?sort=mulai&order=<%= (curSort==='mulai' && curOrder==='asc') ? 'desc' : 'asc' %>&limit=<%= curLimit %>&page=<%= curPage %><%= (curQ ? '&q=' + encodeURIComponent(curQ) : '') %>">Mulai<%= (curSort==='mulai') ? (curOrder==='desc' ? ' ↓' : ' ↑') : '' %></a>
+        </th>
+        <th>
+          <a href="?sort=selesai&order=<%= (curSort==='selesai' && curOrder==='asc') ? 'desc' : 'asc' %>&limit=<%= curLimit %>&page=<%= curPage %><%= (curQ ? '&q=' + encodeURIComponent(curQ) : '') %>">Selesai<%= (curSort==='selesai') ? (curOrder==='desc' ? ' ↓' : ' ↑') : '' %></a>
+        </th>
+        <th>
+          <a href="?sort=keterangan&order=<%= (curSort==='keterangan' && curOrder==='asc') ? 'desc' : 'asc' %>&limit=<%= curLimit %>&page=<%= curPage %><%= (curQ ? '&q=' + encodeURIComponent(curQ) : '') %>">Keterangan<%= (curSort==='keterangan') ? (curOrder==='desc' ? ' ↓' : ' ↑') : '' %></a>
+        </th>
+        <th>Aksi</th>
+      </tr>
+    </thead>
+    <% function toHHMM(m){ return `${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}` } %>
+    <% function toIDTime(m){ return toHHMM(m).replace(':','.'); } %>
+    <tbody>
+      <% function daysQuery(){
+           var arr = Array.isArray(selDays) ? selDays : [];
+           return arr.map(function(d){ return 'days='+encodeURIComponent(String(d)); }).join('&');
+         }
+      %>
+      <% alokasi.forEach(a => { %>
+        <tr data-edit-id="<%= a.id %>" class="row-edit">
+          <td><input type="checkbox" class="row-check" value="<%= a.id %>" title="Pilih baris ini"></td>
+          <td><%= hariMap[a.hari] %></td>
+          <td><%= (typeof a.jamKe === 'number') ? a.jamKe : '-' %></td>
+          <td><%= toIDTime(a.mulaiMenit) %></td>
+          <td><%= toIDTime(a.selesaiMenit) %></td>
+          <td><%= a.keterangan || '-' %></td>
+          <td>
+            <div class="table-actions">
+              <a class="pill-link" href="/admin/alokasi?edit=<%= a.id %>&limit=<%= curLimit %>&sort=<%= curSort %>&order=<%= curOrder %>&page=<%= curPage %><%= (curQ ? '&q=' + encodeURIComponent(curQ) : '') %><%= (selDays.length ? ('&'+daysQuery()) : '') %>">Edit</a>
+              <form method="post" action="/admin/alokasi/delete/<%= a.id %>" onsubmit="return confirm('Hapus alokasi ini?')">
+                <button type="submit">Hapus</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+      <% }) %>
+    </tbody>
+      </table>
+      <% const startItem = (typeof totalRows !== 'undefined' && Number(totalRows) > 0) ? ((Number(curPage) - 1) * Number(curLimit)) + 1 : 0; %>
+      <% const endItem = (typeof totalRows !== 'undefined') ? Math.min(startItem + Number(curLimit) - 1, Number(totalRows)) : (alokasi && alokasi.length ? alokasi.length : 0); %>
+      <div style="margin-top:12px; color:#4b5563;">Menampilkan <%= startItem %>–<%= endItem %> dari <%= typeof totalRows !== 'undefined' ? totalRows : (alokasi && alokasi.length ? alokasi.length : 0) %> alokasi</div>
+        </main>
+  </div>
+</body></html>

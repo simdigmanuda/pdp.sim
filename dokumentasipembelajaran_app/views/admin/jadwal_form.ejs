@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="id"><head><meta charset="UTF-8"><title>Input Jadwal (Form)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="/assets/admin.css">
+  <script src="/assets/admin.js" defer></script>
+</head>
+<body class="dashboard-simple">
+  <div class="layout">
+    <%- include('_sidebar') %>
+    <main class="content">
+      <div class="main-top"><a class="pill-link" href="/admin/logout">Keluar</a></div>
+      <h2>Input Jadwal (Form)</h2>
+
+      <style>
+        /* Tata letak ala contoh gambar: label kiri, input kanan */
+        .form-box { max-width: 920px; margin: 0 auto 16px; }
+        .form-grid { display: grid; grid-template-columns: 180px 1fr; column-gap: 16px; row-gap: 12px; align-items: center; }
+        .form-grid label { margin: 0; font-weight: 700; font-size: 13px; color: #374151; }
+        .form-grid .input-el { display: block; }
+        .form-grid .input-el select { width: 100%; }
+        .jam-box { margin-top: 12px; max-width: 920px; margin-left: auto; margin-right: auto; }
+        /* Hilangkan header aksi; fokus pada checkbox angka */
+        .jam-grid { display:grid; grid-template-columns: repeat(5, 110px); gap:8px; justify-content:center; }
+        .jam-item { border:1px solid #d1d5db; border-radius:8px; padding:8px; display:flex; align-items:center; justify-content:center; gap:10px; background:#f9fafb; cursor:pointer; }
+        .jam-check { transform: scale(1.3); }
+        .jam-num { font-weight:800; font-size:18px; color:#111827; }
+        .actions { display:flex; gap:8px; align-items:center; margin-top:10px; max-width: 920px; margin-left: auto; margin-right: auto; }
+      </style>
+
+      <% if (typeof created !== 'undefined' || typeof skipped !== 'undefined' || typeof failed !== 'undefined' || typeof missing !== 'undefined') { %>
+        <div class="notice" style="margin:8px 0 12px; padding:10px; border:1px solid #d1d5db; border-radius:8px; background:#ecfdf5; color:#065f46;">
+          <strong>Hasil Simpan Form:</strong>
+          <span style="margin-left:8px;">Berhasil: <%= created || 0 %></span>
+          <span style="margin-left:8px;">Lewati (duplikat): <%= skipped || 0 %></span>
+          <span style="margin-left:8px;">Slot tidak ditemukan: <%= missing || 0 %></span>
+          <span style="margin-left:8px;">Gagal: <%= failed || 0 %></span>
+        </div>
+      <% } %>
+
+      <form method="post" action="/admin/jadwal/input-form" style="margin-bottom:14px;">
+        <div class="card form-box">
+          <div class="form-grid">
+            <label for="guruId">Nama Guru</label>
+            <div class="input-el"><select class="select-input" id="guruId" name="guruId" required>
+              <option value="">Pilih Guru</option>
+              <% (guru || []).forEach(g => { %>
+                <option value="<%= g.id %>" <%= (typeof selectedGuruId !== 'undefined' && selectedGuruId===g.id) ? 'selected' : '' %>><%= g.nama %></option>
+              <% }) %>
+            </select></div>
+
+            <label for="tingkatSelect">Tingkat</label>
+            <div class="input-el"><select class="select-input" id="tingkatSelect">
+              <option value="">Semua Tingkat</option>
+              <% (tingkatList || []).forEach(t => { %>
+                <option value="<%= t %>"><%= t %></option>
+              <% }) %>
+            </select></div>
+
+            <label for="kelasSelect">Kelas</label>
+            <div class="input-el"><select class="select-input" name="kelasId" required id="kelasSelect">
+              <option value="">Pilih Kelas</option>
+              <% (kelas || []).forEach(k => { %>
+                <option value="<%= k.id %>" data-tingkat="<%= k.tingkat %>"><%= k.nama %></option>
+              <% }) %>
+            </select></div>
+
+            <label for="mapelId">Mapel</label>
+            <div class="input-el"><select class="select-input" id="mapelId" name="mapelId" required>
+              <option value="">Pilih Mapel</option>
+              <% (mapel || []).forEach(m => { %>
+                <option value="<%= m.id %>"><%= m.kode || m.nama %></option>
+              <% }) %>
+            </select></div>
+
+            <label for="hariSelect">Hari</label>
+            <div class="input-el"><select class="select-input" name="hari" required id="hariSelect">
+              <% const dayNames = ['Ahad','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu']; for (let h=1; h<=6; h++){ %>
+                <option value="<%= h %>"><%= dayNames[h] %></option>
+              <% } %>
+            </select></div>
+          </div>
+        </div>
+
+        <div class="card jam-box">
+          <div class="field"><label>Jam Ke</label></div>
+          <div id="jamList" class="jam-grid">
+            <% for (let j=1; j<=10; j++){ %>
+              <label class="jam-item" for="jam_<%= j %>">
+                <input type="checkbox" name="jamKe[]" value="<%= j %>" class="jam-check" id="jam_<%= j %>">
+                <span class="jam-num" style="font-weight:600; color:#111827;"><%= j %></span>
+              </label>
+            <% } %>
+          </div>
+          <div id="jamHelper" style="margin-top:8px; font-size:12px; color:#6b7280;">Pilih Guru, Kelas, Mapel, dan Hari untuk mengaktifkan pilihan jam.</div>
+        </div>
+
+        <div class="actions">
+          <button type="submit">Simpan Jadwal</button>
+          <% if (typeof selectedGuruId !== 'undefined') { %>
+            <a class="pill-link" href="/admin/jadwal/input-grid?guruId=<%= selectedGuruId %>">Edit Jadwal (Grid)</a>
+          <% } %>
+        </div>
+      </form>
+
+      <% if (Array.isArray(rows) && rows.length) { %>
+        <% function toHHMM(m){ return `${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}` } %>
+        <h3 style="margin-top:4px;">Jadwal Terkini Guru</h3>
+        <table class="table-realtime">
+          <thead>
+            <tr>
+              <th>No</th>
+              <th>Hari</th>
+              <th>Kelas</th>
+              <th>Tingkat</th>
+              <th>Mapel</th>
+              <th>Waktu</th>
+              <th>Aksi</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% rows.forEach((r, idx) => { %>
+              <tr>
+                <td><%= idx + 1 %></td>
+                <td><%= ['Ahad','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'][r.hari] %></td>
+                <td><%= r.kelasNama %></td>
+                <td><%= r.tingkat || '-' %></td>
+                <td><%= r.mapelNama %></td>
+                <td><%= toHHMM(r.mulaiMenit) %>–<%= toHHMM(r.selesaiMenit) %></td>
+                <td>
+                  <form method="post" action="/admin/jadwal/delete/<%= r.id %>" onsubmit="return confirm('Hapus jadwal ini?')">
+                    <button type="submit">Hapus</button>
+                  </form>
+                </td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      <% } else { %>
+        <div style="margin-top:10px; color:#6b7280;">Belum ada jadwal untuk guru terpilih. Pilih guru di form untuk melihat daftar jadwal.</div>
+      <% } %>
+
+      <script>
+        (function(){
+          // Filter kelas berdasarkan tingkat terpilih
+          var tingkatSel = document.getElementById('tingkatSelect');
+          var kelasSel = document.getElementById('kelasSelect');
+          function applyFilter(){
+            var tval = tingkatSel ? tingkatSel.value : '';
+            var opts = Array.from(kelasSel.options);
+            opts.forEach(function(opt){
+              if (!opt.value) return; // skip placeholder
+              var t = opt.getAttribute('data-tingkat');
+              opt.style.display = (tval && t) ? ((String(t) === String(tval)) ? '' : 'none') : '';
+            });
+          }
+          if (tingkatSel && kelasSel){ tingkatSel.addEventListener('change', applyFilter); applyFilter(); }
+
+          // Hari diperlukan untuk validasi readiness
+          var hariSel = document.getElementById('hariSelect');
+
+          // Enable/disable jam checkboxes until required fields selected
+          var guruSel = document.querySelector('select[name="guruId"]');
+          var mapelSel = document.querySelector('select[name="mapelId"]');
+          function fieldsReady(){
+            var g = guruSel && guruSel.value; var k = kelasSel && kelasSel.value; var m = mapelSel && mapelSel.value; var h = hariSel && hariSel.value;
+            return Boolean(g && k && m && h);
+          }
+          function applyJamEnabled(){
+            var checks = document.querySelectorAll('.jam-check');
+            var ready = fieldsReady();
+            checks.forEach(function(ch){ ch.disabled = !ready; });
+            var helper = document.getElementById('jamHelper');
+            if (helper) helper.style.display = ready ? 'none' : '';
+          }
+
+          // Hilangkan aksi pilih semua/hapus semua, fokus checkbox angka
+
+          // React to field changes
+          [guruSel, kelasSel, mapelSel, hariSel].forEach(function(sel){ if (sel) sel.addEventListener('change', function(){ applyJamEnabled(); }); });
+
+          // Initial
+          applyJamEnabled();
+        })();
+      </script>
+    </main>
+  </div>
+</body></html>

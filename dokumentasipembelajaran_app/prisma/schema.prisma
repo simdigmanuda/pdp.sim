@@ -1,0 +1,113 @@
+// Prisma Schema for "Aplikasi Pemantauan Dokumentasi Pembelajaran"
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dokumentasi_pembelajaran.db"
+}
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+}
+
+model AdminUser {
+  id           Int      @id @default(autoincrement())
+  username     String   @unique
+  passwordHash String
+  role         Role     @default(ADMIN)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Guru {
+  id           Int      @id @default(autoincrement())
+  nama         String
+  email        String?  @unique
+  uploadToken  String   @unique
+  aktif        Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  // relasi
+  jadwal       JadwalMengajar[]
+  submissions  Dokumentasi[]
+  mapelGuru    MapelGuru[]
+}
+
+model Mapel {
+  id        Int         @id @default(autoincrement())
+  nama      String      @unique
+  kode      String?     @unique
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  mapelGuru MapelGuru[]
+  jadwal    JadwalMengajar[]
+  submissions Dokumentasi[]
+}
+
+model Kelas {
+  id        Int         @id @default(autoincrement())
+  nama      String      @unique
+  tingkat   String?
+  kode      String?
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  jadwal    JadwalMengajar[]
+  submissions Dokumentasi[]
+}
+
+model MapelGuru {
+  id      Int   @id @default(autoincrement())
+  guruId  Int
+  mapelId Int
+  guru    Guru  @relation(fields: [guruId], references: [id], onDelete: Cascade)
+  mapel   Mapel @relation(fields: [mapelId], references: [id], onDelete: Cascade)
+  @@unique([guruId, mapelId])
+}
+
+model JadwalMengajar {
+  id         Int      @id @default(autoincrement())
+  guruId     Int
+  mapelId    Int
+  kelasId    Int
+  hari       Int      // 0=Ahad ... 6=Sabtu
+  mulaiMenit Int      // menit sejak 00:00, contoh 8*60=480
+  selesaiMenit Int    // menit sejak 00:00
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  guru       Guru     @relation(fields: [guruId], references: [id], onDelete: Cascade)
+  mapel      Mapel    @relation(fields: [mapelId], references: [id], onDelete: Cascade)
+  kelas      Kelas    @relation(fields: [kelasId], references: [id], onDelete: Cascade)
+}
+
+model Dokumentasi {
+  id         Int      @id @default(autoincrement())
+  guruId     Int
+  mapelId    Int?
+  kelasId    Int?
+  fotoPath   String
+  latitude   Float?
+  longitude  Float?
+  jamKe      Int?
+  jamKeList  String?
+  createdAt  DateTime @default(now())
+  isLocationValid Boolean?
+
+  guru       Guru     @relation(fields: [guruId], references: [id], onDelete: Cascade)
+  mapel      Mapel?   @relation(fields: [mapelId], references: [id])
+  kelas      Kelas?   @relation(fields: [kelasId], references: [id])
+}
+
+model AlokasiJamBelajar {
+  id         Int      @id @default(autoincrement())
+  hari       Int      // 0..6
+  mulaiMenit Int
+  selesaiMenit Int
+  jamKe      Int?
+  keterangan String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}

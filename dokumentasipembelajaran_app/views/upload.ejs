@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <title>Aplikasi Pemantauan Dokumentasi Pembelajaran - Upload</title>
+  <style>
+    body { font-family: system-ui, Arial; margin: 20px; }
+    .wrap { max-width: 640px; margin: auto; }
+    video, canvas { width: 100%; border: 1px solid #ccc; border-radius: 8px; }
+    label { display: block; margin-top: 12px; font-weight: 600; }
+    button { margin-top: 16px; padding: 10px 16px; }
+  </style>
+  </head>
+<body>
+<div class="wrap">
+  <h2>Upload Dokumentasi Pembelajaran</h2>
+  <p>Nama Guru: <strong><%= guru.nama %></strong></p>
+  <p>Pastikan wajah terlihat jelas (kamera depan) dan aktifkan lokasi.</p>
+
+  <video id="video" autoplay playsinline></video>
+  <canvas id="canvas" style="display:none;"></canvas>
+
+  <label>Mapel</label>
+  <select id="mapel">
+    <option value="">-- Pilih Mapel --</option>
+    <% mapel.forEach(m => { %>
+      <option value="<%= m.id %>"><%= m.kode || m.nama %></option>
+    <% }) %>
+  </select>
+
+  <label>Kelas</label>
+  <select id="kelas">
+    <option value="">-- Pilih Kelas --</option>
+    <% kelas.forEach(k => { %>
+      <option value="<%= k.id %>"><%= k.nama %></option>
+    <% }) %>
+  </select>
+
+  <label>Jam Mengajar</label>
+  <div id="jam-group" style="display:flex; flex-wrap: wrap; gap: 8px; margin-top:8px;">
+    <% for (let i = 1; i <= 10; i++) { %>
+      <label style="display:inline-flex; align-items:center; gap:6px;">
+        <input type="checkbox" name="jamKe" value="<%= i %>" /> <%= i %>
+      </label>
+    <% } %>
+  </div>
+
+  <div id="lokasi">Koordinat: <em>mengambil lokasi...</em></div>
+
+  <button id="snap">Ambil Foto</button>
+  <button id="upload" disabled>Kirim</button>
+
+  <div id="status"></div>
+</div>
+
+<script>
+  const video = document.getElementById('video');
+  const canvas = document.getElementById('canvas');
+  const snapBtn = document.getElementById('snap');
+  const uploadBtn = document.getElementById('upload');
+  const statusDiv = document.getElementById('status');
+  const lokasiDiv = document.getElementById('lokasi');
+  const mapelSel = document.getElementById('mapel');
+  const kelasSel = document.getElementById('kelas');
+  const jamGroup = document.getElementById('jam-group');
+  const guruName = '<%= String(guru.nama || "").replace(/"/g, "&quot;") %>';
+
+  // Mirror selalu aktif secara default
+  video.style.transform = 'scaleX(-1)';
+  video.style.transformOrigin = 'center';
+
+  let lat = null, lng = null, lastBlob = null;
+
+  function updateUploadEnabled() {
+    const jamChecked = jamGroup.querySelector('input[name="jamKe"]:checked');
+    const ready = !!lastBlob && !!mapelSel.value && !!kelasSel.value && !!jamChecked;
+    uploadBtn.disabled = !ready;
+  }
+
+  mapelSel.addEventListener('change', updateUploadEnabled);
+  kelasSel.addEventListener('change', updateUploadEnabled);
+  jamGroup.addEventListener('change', () => { updateUploadEnabled(); });
+
+  // Ambil lokasi
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        lat = pos.coords.latitude;
+        lng = pos.coords.longitude;
+        lokasiDiv.innerText = `Koordinat: ${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+      },
+      err => { lokasiDiv.innerText = 'Koordinat: tidak tersedia'; }
+    );
+  } else {
+    lokasiDiv.innerText = 'Koordinat: geolocation tidak didukung';
+  }
+
+  // Kamera depan
+  async function startCamera() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'user' }, audio: false
+      });
+      video.srcObject = stream;
+    } catch (e) {
+      statusDiv.innerText = 'Gagal akses kamera: ' + e.message;
+    }
+  }
+  startCamera();
+
+  // Watermark logo + koordinat
+  async function takeSnapshot() {
+    // Validasi wajib isi sebelum ambil foto
+    const jamChecked = jamGroup.querySelector('input[name="jamKe"]:checked');
+    const missing = [];
+    if (!mapelSel.value) missing.push('Mapel');
+    if (!kelasSel.value) missing.push('Kelas');
+    if (!jamChecked) missing.push('Jam Mengajar');
+    if (missing.length) {
+      statusDiv.innerText = 'Harap isi terlebih dahulu: ' + missing.join(', ');
+      // Sorot field yang belum diisi
+      [mapelSel, kelasSel].forEach(el => {
+        if (!el.value) { el.style.outline = '2px solid #ef4444'; setTimeout(() => { el.style.outline = ''; }, 2000); }
+      });
+      if (!jamChecked) { jamGroup.style.outline = '2px dashed #ef4444'; setTimeout(() => { jamGroup.style.outline = ''; }, 2000); }
+      return;
+    }
+    const w = video.videoWidth;
+    const h = video.videoHeight;
+    if (!w || !h) { statusDiv.innerText = 'Kamera belum siap'; return; }
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    // Selalu mirror agar sesuai kebiasaan kamera depan
+    ctx.save();
+    ctx.translate(w, 0);
+    ctx.scale(-1, 1);
+    ctx.drawImage(video, 0, 0, w, h);
+    ctx.restore();
+
+    // Logo
+    const logo = new Image();
+    logo.src = '/assets/logo_besar.png';
+    await new Promise((resolve) => { logo.onload = resolve; logo.onerror = resolve; });
+    ctx.globalAlpha = 0.85;
+    // Pindah ke kanan atas, ukuran 150x60
+    ctx.drawImage(logo, w - 160, 10, 150, 60);
+    ctx.globalAlpha = 1.0;
+
+    // Teks identitas (kiri) dan waktu/koordinat (kanan) - dua kolom
+    const ts = new Date();
+    const dateText = ts.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    const timeText = ts.toLocaleTimeString('id-ID', { hour12: false, hour: '2-digit', minute: '2-digit' });
+    const mapelText = mapelSel.options[mapelSel.selectedIndex]?.text || '-';
+    const kelasText = kelasSel.options[kelasSel.selectedIndex]?.text || '-';
+    const jamList = Array.from(jamGroup.querySelectorAll('input[name="jamKe"]:checked')).map(cb => cb.value);
+    const jamText = jamList.length ? `Jam Mengajar: ${jamList.join(', ')}` : 'Jam Mengajar: -';
+    const sekolahText = 'SMK Ma\'arif NU 2 Ajibarang';
+
+    const leftLines = [
+      `Guru: ${guruName}`,
+      sekolahText,
+      `Mapel: ${mapelText}`,
+      `Kelas: ${kelasText}`,
+      jamText,
+    ];
+    const rightLines = (lat && lng)
+      ? [ `${dateText} · ${timeText}`, `Lat: ${lat.toFixed(6)}`, `Lng: ${lng.toFixed(6)}` ]
+      : [ `${dateText} · ${timeText}`, 'Koordinat tidak tersedia' ];
+
+    // Pengaturan padding & line-height agar area warna tidak terlalu tinggi
+    const paddingTop = 20;
+    const paddingBottom = 14;
+    const lineH = 22;
+    const maxLines = Math.max(leftLines.length, rightLines.length);
+    const bgH = paddingTop + paddingBottom + lineH * maxLines;
+    ctx.fillStyle = 'rgba(0,0,0,0.4)';
+    ctx.fillRect(0, h - bgH, w, bgH);
+    ctx.fillStyle = '#fff';
+    ctx.font = '17px sans-serif';
+
+    const colGap = 24;
+    const colWidth = (w - colGap) / 2;
+    const leftX = 12;
+    const rightEdge = w - 12; // rata kanan di tepi kanan overlay
+
+    // Kolom kiri: rata kiri
+    ctx.textAlign = 'left';
+    leftLines.forEach((t, i) => {
+      ctx.fillText(t, leftX, h - bgH + paddingTop + i * lineH);
+    });
+
+    // Kolom kanan: rata kanan
+    ctx.textAlign = 'right';
+    rightLines.forEach((t, i) => {
+      // Batasi agar tidak melewati batas kiri kolom kanan
+      const minRightX = leftX + colWidth + colGap + 8;
+      const x = Math.max(minRightX, rightEdge);
+      ctx.fillText(t, rightEdge, h - bgH + paddingTop + i * lineH);
+    });
+
+    canvas.style.display = 'block';
+    // Persiapkan blob dengan batas maksimum 3MB
+    async function toBlobMax(maxBytes) {
+      let quality = 0.9;
+      for (let i = 0; i < 6; i++) {
+        const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', quality));
+        if (blob && blob.size <= maxBytes) return blob;
+        quality = Math.max(0.5, quality - 0.1);
+      }
+      return await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.5));
+    }
+    lastBlob = await toBlobMax(3 * 1024 * 1024);
+    if (lastBlob && lastBlob.size > 3 * 1024 * 1024) {
+      statusDiv.innerText = 'Peringatan: Foto masih di atas 3MB. Coba ulangi.';
+    }
+    statusDiv.innerText = 'Foto siap diunggah.';
+    updateUploadEnabled();
+  }
+
+  snapBtn.addEventListener('click', takeSnapshot);
+
+  uploadBtn.addEventListener('click', async () => {
+    if (!lastBlob) { statusDiv.innerText = 'Ambil foto dahulu.'; return; }
+    if (!mapelSel.value || !kelasSel.value) { statusDiv.innerText = 'Pilih Mapel dan Kelas dahulu.'; return; }
+    const jamChecked = jamGroup.querySelector('input[name="jamKe"]:checked');
+    if (!jamChecked) { statusDiv.innerText = 'Pilih Jam Mengajar dahulu.'; return; }
+    const mapelId = mapelSel.value || '';
+    const kelasId = kelasSel.value || '';
+    const fd = new FormData();
+    fd.append('foto', lastBlob, 'selfie.jpg');
+    fd.append('mapelId', mapelId);
+    fd.append('kelasId', kelasId);
+    // Kirim semua jam yang dicentang sebagai field jamKe (array)
+    jamGroup.querySelectorAll('input[name="jamKe"]:checked').forEach(cb => {
+      fd.append('jamKe', cb.value);
+    });
+    fd.append('latitude', lat || '');
+    fd.append('longitude', lng || '');
+
+    try {
+      const resp = await fetch(location.pathname.replace('/upload/', '/api/upload/'), {
+        method: 'POST',
+        body: fd
+      });
+      const json = await resp.json();
+      if (json.ok) {
+        statusDiv.innerText = 'Berhasil diunggah. Terima kasih.';
+        uploadBtn.disabled = true;
+      } else {
+        statusDiv.innerText = 'Gagal unggah: ' + (json.error || 'unknown');
+      }
+    } catch (e) {
+      statusDiv.innerText = 'Gagal unggah: ' + e.message;
+    }
+  });
+</script>
+</body>
+</html>

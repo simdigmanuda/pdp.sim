@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="id"><head><meta charset="UTF-8"><title>Jadwal Guru (Grid)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="/assets/admin.css">
+  <script src="/assets/admin.js" defer></script>
+</head>
+<body class="dashboard-simple">
+  <div class="layout">
+    <%- include('_sidebar') %>
+    <main class="content">
+      <div class="main-top"><a class="pill-link" href="/admin/logout">Keluar</a></div>
+      <h2>Jadwal Guru (Grid)</h2>
+      <script id="jadwalOptions" type="application/json"><%- JSON.stringify({
+        guru: (guru || []).map(function(g){ return { id: g.id, nama: g.nama }; }),
+        kelas: (kelas || []).map(function(k){ return { id: k.id, nama: k.nama, tingkat: (k.tingkat || null) }; }),
+        mapel: (mapel || []).map(function(m){ return { id: m.id, nama: m.nama, kode: (m.kode || null) }; }),
+        hariMap: ['Ahad','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu']
+      }) %></script>
+      <script>window.JADWAL_OPTIONS = JSON.parse(document.getElementById('jadwalOptions').textContent);</script>
+
+      <form method="get" action="/admin/jadwal/view-grid" style="margin-bottom:12px; display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap;">
+        <div class="field" style="margin-bottom:0;">
+          <label>Pilih Guru</label>
+          <select name="guruId" class="grid-select">
+            <option value="">Semua Guru</option>
+            <% (guru || []).forEach(g => { %>
+              <option value="<%= g.id %>" <%= (selectedGuruId===g.id)?'selected':'' %>><%= g.nama %></option>
+            <% }) %>
+          </select>
+        </div>
+        <div class="field" style="margin-bottom:0;">
+          <label>Pilih Kelas</label>
+          <select name="kelasId" class="grid-select">
+            <option value="">Semua Kelas</option>
+            <% (kelas || []).forEach(k => { %>
+              <option value="<%= k.id %>" <%= (selectedKelasId===k.id)?'selected':'' %>><%= k.nama %></option>
+            <% }) %>
+          </select>
+        </div>
+        <div class="field-actions" style="margin-bottom:0; display:flex; gap:8px; align-items:center;">
+          <button type="submit" style="height:40px;">Terapkan Filter</button>
+          <a class="pill-link" href="/admin/jadwal/view-grid" style="display:inline-flex; align-items:center; height:40px;">Reset</a>
+        </div>
+      </form>
+
+      <% if (summary) { %>
+        <div class="notice" style="margin:6px 0 10px; padding:8px; border:1px solid #d1d5db; border-radius:8px; background:#eef2ff; color:#000;">
+          <% if (summary.selectedGuruName) { %>
+            <span>
+              <strong>Guru:</strong> <%= summary.selectedGuruName %>
+              · Total Jam:
+              <a href="/admin/guru?q=<%= encodeURIComponent(summary.selectedGuruName) %>&sort=totalJam&order=desc&limit=1000" style="color:#000; text-decoration:underline;"><%= summary.totalJamGuru %></a>
+              · Total Mapel:
+              <a href="/admin/guru?q=<%= encodeURIComponent(summary.selectedGuruName) %>&sort=totalMapel&order=desc&limit=1000" style="color:#000; text-decoration:underline;"><%= summary.totalMapelGuru %></a>
+            </span>
+          <% } %>
+          <% if (summary.selectedKelasName) { %>
+            <span style="margin-left:12px;"><strong>Kelas:</strong> <%= summary.selectedKelasName %> · Total Jam: <%= summary.totalJamKelas %></span>
+          <% } %>
+          <% if (summary.selectedGuruName && summary.selectedKelasName && typeof summary.totalJamGuruDiKelas === 'number') { %>
+            <span style="margin-left:12px;"><strong>Jam Guru di Kelas:</strong> <%= summary.totalJamGuruDiKelas %></span>
+          <% } %>
+        </div>
+      <% } %>
+
+      <% if (Array.isArray(breaks) && breaks.length) { %>
+        <div class="notice" style="margin:6px 0 10px; padding:8px; border:1px solid #d1d5db; border-radius:8px; background:#f3f4f6; color:#111827;">
+          <strong>Istirahat:</strong>
+          <span style="margin-left:6px;"><%= breaks.join(', ') %></span>
+        </div>
+      <% } %>
+
+      <% const dayNames = ['Ahad','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu']; const dayIdx = [1,2,3,4,5,6]; %>
+      <table class="table-realtime">
+        <thead>
+          <tr>
+            <th>Hari</th>
+            <% for (let j=1; j<=(maxJam||10); j++){ %>
+              <th>
+                <div style="font-weight:700; color:#fff;">Jam ke <%= j %></div>
+                <div style="font-size:12px; color:#fff; margin-top:2px;">
+                  <%= (Array.isArray(jamLabels) && jamLabels[j-1]) ? jamLabels[j-1] : '-' %>
+                </div>
+              </th>
+            <% } %>
+          </tr>
+        </thead>
+        <tbody>
+          <% for (let di=0; di<dayIdx.length; di++){ const d = dayIdx[di]; %>
+            <tr>
+              <td style="font-weight:600; color:#111827;"><%= dayNames[d] %></td>
+              <% for (let j=1; j<=(maxJam||10); j++){ const key = `${d}:${j}`; const items = grid[key] || []; const first = items[0]; %>
+                <td>
+                  <div class="grid-slot <%= items.length ? 'filled' : '' %>" data-mapel-id="<%= first ? first.mapelId : '' %>">
+                    <% if (items.length) { %>
+                      <% items.forEach(it => { %>
+                        <div class="grid-item" style="padding:4px 6px; border-radius:6px; background:rgba(255,255,255,0.6); margin-bottom:4px;">
+                          <span style="font-weight:600;"><%= it.mapelKode || it.mapelNama %></span>
+                          <span style="color:#6b7280;"> - 
+                            <% if (selectedGuruId) { %>
+                              <%= it.kelasNama %>
+                            <% } else if (selectedKelasId) { %>
+                              <%= it.guruNama %>
+                            <% } else { %>
+                              <%= it.kelasNama %> / <%= it.guruNama %>
+                            <% } %>
+                          </span>
+                          <div style="margin-top:6px;">
+                            <button type="button" class="pill-link btn-edit-jadwal"
+                              data-id="0"
+                              data-guru-id="<%= it.guruId %>"
+                              data-kelas-id="<%= it.kelasId %>"
+                              data-mapel-id="<%= it.mapelId %>"
+                              data-hari="<%= d %>"
+                              data-jam-ke="<%= j %>"
+                              data-mulai="<%= (Array.isArray(jamLabels) && jamLabels[j-1]) ? String(jamLabels[j-1]).split('–')[0] : '' %>"
+                              data-selesai="<%= (Array.isArray(jamLabels) && jamLabels[j-1]) ? String(jamLabels[j-1]).split('–')[1] : '' %>"
+                            >Edit</button>
+                          </div>
+                        </div>
+                      <% }) %>
+                    <% } else { %>
+                      <div class="empty" style="color:#9ca3af;">-</div>
+                    <% } %>
+                  </div>
+                </td>
+              <% } %>
+            </tr>
+          <% } %>
+        </tbody>
+      </table>
+
+      <div class="field-actions" style="margin-top:12px; display:flex; gap:8px;">
+        <a class="pill-link" href="/admin/jadwal">Kembali ke Jadwal</a>
+        <a class="pill-link" href="/admin/jadwal/input-grid">Input Jadwal (Grid)</a>
+      </div>
+
+      <script>
+        (function(){
+          var palette = ['#F8B4C6','#A7E08C','#F3A1FF','#F6C1B7','#AEE6DA','#D7C8F9','#FDE68A','#FECBA1'];
+          function colorForMapel(val){ var num = parseInt(String(val||''), 10); if (!Number.isInteger(num)) return null; return palette[num % palette.length]; }
+          function initColors(){
+            var slots = document.querySelectorAll('.grid-slot.filled');
+            slots.forEach(function(slot){ var mid = slot.dataset.mapelId; var col = colorForMapel(mid); if (col) slot.style.background = col; });
+          }
+          document.addEventListener('DOMContentLoaded', initColors);
+        })();
+      </script>
+    </main>
+  </div>
+</body></html>

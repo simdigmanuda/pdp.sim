@@ -1,0 +1,29 @@
+{
+  "namaSekolah": "SMK MA'ARIF NU 2 AJIBARANG",
+  "locations": [
+    {
+      "lat": -7.401148,
+      "lng": 109.07761,
+      "radius": 150,
+      "name": "Sekolah"
+    },
+    {
+      "lat": -7.402999,
+      "lng": 109.080766,
+      "radius": 100,
+      "name": "Lapangan Ajibarang Wetan"
+    },
+    {
+      "lat": -7.398583,
+      "lng": 109.079337,
+      "radius": 100,
+      "name": "Fatmaba Kolam Renang"
+    },
+    {
+      "lat": -7.423937,
+      "lng": 109.074673,
+      "radius": 100,
+      "name": "Dreamland Kolam Renang"
+    }
+  ]
+}

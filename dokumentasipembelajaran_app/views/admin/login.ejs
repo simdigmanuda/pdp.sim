@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="id"><head><meta charset="UTF-8"><title>Masuk Admin — Aplikasi Pemantauan Dokumentasi Pembelajaran</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="/assets/admin.css">
+  <script src="/assets/admin.js" defer></script>
+</head>
+<body class="login-simple">
+  <section class="login-wrapper">
+    <article class="login-card">
+      <figure class="login-logo"><img src="/assets/logo.png" alt="Logo"></figure>
+      <h2 class="login-title">Aplikasi Pemantauan Dokumentasi Pembelajaran</h2>
+
+      <form method="post" action="/admin/login" autocomplete="on" class="login-form">
+        <input class="login-input" type="text" name="username" required placeholder="Nama Pengguna" />
+        <input class="login-input" type="password" name="password" required placeholder="Kata Sandi" />
+
+        <button type="submit" class="login-btn">Masuk</button>
+      </form>
+
+      <p class="login-footer-text">SMK Ma'arif NU 2 Ajibarang</p>
+
+    </article>
+  </section>
+
+  <script>
+    // Simpan username jika pilih Remember me
+    const remember = document.getElementById('rememberUser');
+    const userInput = document.querySelector('.login-input[name="username"]');
+    try {
+      const lastUser = localStorage.getItem('last_admin_user');
+      if (lastUser && userInput) userInput.value = lastUser;
+      if (localStorage.getItem('remember_admin_user') === '1' && remember) remember.checked = true;
+
+      document.querySelector('.login-form').addEventListener('submit', () => {
+        if (remember?.checked) {
+          localStorage.setItem('remember_admin_user', '1');
+          localStorage.setItem('last_admin_user', userInput?.value || '');
+        } else {
+          localStorage.removeItem('remember_admin_user');
+        }
+      });
+    } catch(e) {}
+  </script>
+</body></html>

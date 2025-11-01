@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="id"><head><meta charset="UTF-8"><title>Input Jadwal (Grid per Guru)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="/assets/admin.css">
+  <script src="/assets/admin.js" defer></script>
+</head>
+<body class="dashboard-simple">
+  <div class="layout">
+    <%- include('_sidebar') %>
+    <main class="content">
+      <div class="main-top"><a class="pill-link" href="/admin/logout">Keluar</a></div>
+      <h2>Input Jadwal (Grid per Guru)</h2>
+
+      <% if (typeof created !== 'undefined' || typeof skipped !== 'undefined' || typeof failed !== 'undefined' || typeof missing !== 'undefined') { %>
+        <div class="notice" style="margin:8px 0 12px; padding:10px; border:1px solid #d1d5db; border-radius:8px; background:#ecfdf5; color:#065f46;">
+          <strong>Hasil Simpan Grid:</strong>
+          <span style="margin-left:8px;">Berhasil: <%= created || 0 %></span>
+          <span style="margin-left:8px;">Lewati (duplikat): <%= skipped || 0 %></span>
+          <span style="margin-left:8px;">Slot tidak ditemukan: <%= missing || 0 %></span>
+          <span style="margin-left:8px;">Gagal: <%= failed || 0 %></span>
+        </div>
+      <% } %>
+
+      <form method="post" action="/admin/jadwal/input-grid">
+        <div class="field" style="margin-bottom:12px;">
+          <label>Pilih Guru</label>
+          <select id="gridGuruSelect" name="guruId" required class="grid-select">
+            <option value="">Pilih Guru</option>
+            <% (guru || []).forEach(g => { %>
+              <option value="<%= g.id %>" <%= (typeof selectedGuruId !== 'undefined' && selectedGuruId===g.id) ? 'selected' : '' %>><%= g.nama %></option>
+            <% }) %>
+          </select>
+        </div>
+        <div id="selectedGuruName" style="margin-bottom:10px; font-weight:600; color:#374151;">Nama Guru: <span id="guruNameText"><%= typeof selectedGuruName !== 'undefined' ? selectedGuruName : '-' %></span></div>
+
+        <p style="margin:8px 0; color:#6b7280;">Kolom = Jam Pelajaran (1–<%= maxJam || 10 %>), Baris = Hari (Senin–Sabtu). Kosongkan sel untuk tidak membuat jadwal. Waktu slot diambil dari Alokasi Jam Belajar.</p>
+        <p style="margin:-4px 0 10px; color:#6b7280;">Untuk awal, pilih <strong>Kelas</strong> dan <strong>Mapel</strong> pada slot yang ingin diisi.</p>
+
+        <% if (Array.isArray(breaks) && breaks.length) { %>
+          <div class="notice" style="margin:6px 0 10px; padding:8px; border:1px solid #d1d5db; border-radius:8px; background:#f3f4f6; color:#111827;">
+            <strong>Istirahat:</strong>
+            <span style="margin-left:6px;"><%= breaks.join(', ') %></span>
+          </div>
+        <% } %>
+
+        <% const dayNames = ['Ahad','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu']; const dayIdx = [1,2,3,4,5,6]; %>
+        <table class="table-realtime">
+          <thead>
+            <tr>
+              <th>Hari</th>
+              <% for (let j=1; j<=(maxJam||10); j++){ %>
+                <th>
+                  <div style="font-weight:700; color:#fff;">Jam ke <%= j %></div>
+                  <div style="font-size:12px; color:#fff; margin-top:2px;">
+                    <%= (Array.isArray(jamLabels) && jamLabels[j-1]) ? jamLabels[j-1] : '-' %>
+                  </div>
+                </th>
+              <% } %>
+            </tr>
+          </thead>
+          <tbody>
+            <% for (let di=0; di<dayIdx.length; di++){ const d = dayIdx[di]; %>
+              <tr>
+                <td style="font-weight:600; color:#111827;"><%= dayNames[d] %></td>
+                <% for (let j=1; j<=(maxJam||10); j++){ const cellKey = `${d}:${j}`; const pf = (prefillGrid || {})[cellKey]; %>
+                  <td>
+                    <div class="grid-slot">
+                      <select name="kelas_<%= d %>_<%= j %>" class="grid-select">
+                        <option value="">Pilih Kelas</option>
+                        <% (kelas || []).forEach(k => { %>
+                          <option value="<%= k.id %>" <%= (pf && pf.kelasId===k.id) ? 'selected' : '' %>><%= k.nama %></option>
+                        <% }) %>
+                      </select>
+                      <select name="mapel_<%= d %>_<%= j %>" class="grid-select">
+                        <option value="">Pilih Mapel</option>
+                        <% (mapel || []).forEach(m => { %>
+                          <option value="<%= m.id %>" <%= (pf && pf.mapelId===m.id) ? 'selected' : '' %>><%= m.kode || m.nama %></option>
+                        <% }) %>
+                      </select>
+                    </div>
+                  </td>
+                <% } %>
+              </tr>
+            <% } %>
+          </tbody>
+        </table>
+        <div class="field-actions" style="margin-top:12px; display:flex; gap:8px;">
+          <button type="submit">Simpan Jadwal Grid</button>
+          <a class="pill-link" href="/admin/jadwal">Kembali ke Jadwal</a>
+        </div>
+      </form>
+
+      <script>
+        (function(){
+          var sel = document.getElementById('gridGuruSelect');
+          var out = document.getElementById('guruNameText');
+          function update(){ var o = sel.options[sel.selectedIndex]; out.textContent = o && o.value ? o.textContent : '-'; }
+          if (sel && out){ sel.addEventListener('change', update); update(); }
+
+          // Pewarnaan sel terisi berdasarkan Mapel terpilih
+          var palette = ['#F8B4C6','#A7E08C','#F3A1FF','#F6C1B7','#AEE6DA','#D7C8F9','#FDE68A','#FECBA1'];
+          function colorForMapel(val){
+            var num = parseInt(String(val||''), 10);
+            if (!Number.isInteger(num)) return null;
+            return palette[num % palette.length];
+          }
+          function applySlotColor(slot){
+            var selects = slot.querySelectorAll('select');
+            var kelasVal = selects[0] && selects[0].value;
+            var mapelVal = selects[1] && selects[1].value;
+            if (kelasVal && mapelVal){
+              var col = colorForMapel(mapelVal) || '#F3F4F6';
+              slot.style.background = col;
+              slot.classList.add('filled');
+            } else {
+              slot.style.background = '';
+              slot.classList.remove('filled');
+            }
+          }
+          function initGridColoring(){
+            var slots = document.querySelectorAll('.grid-slot');
+            slots.forEach(function(slot){
+              var selects = slot.querySelectorAll('select');
+              selects.forEach(function(s){ s.addEventListener('change', function(){ applySlotColor(slot); }); });
+              applySlotColor(slot);
+            });
+          }
+          document.addEventListener('DOMContentLoaded', initGridColoring);
+        })();
+      </script>
+    </main>
+  </div>
+</body></html>

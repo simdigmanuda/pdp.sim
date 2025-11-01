@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="id"><head><meta charset="UTF-8"><title>Jadwal Mengajar</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="/assets/admin.css">
+  <script src="/assets/admin.js" defer></script>
+</head>
+<body class="dashboard-simple">
+  <div class="layout">
+    <%- include('_sidebar') %>
+    <main class="content">
+      <div class="main-top"><a class="pill-link" href="/admin/logout">Keluar</a></div>
+      <h2>Jadwal Mengajar</h2>
+      <script id="jadwalOptions" type="application/json"><%- JSON.stringify({
+        guru: (guru||[]).map(function(g){ return { id: g.id, nama: g.nama }; }),
+        kelas: (kelas||[]).map(function(k){ return { id: k.id, nama: k.nama, tingkat: k.tingkat || null }; }),
+        mapel: (mapel||[]).map(function(m){ return { id: m.id, nama: m.nama, kode: m.kode || null }; }),
+        hariMap: ['Ahad','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu']
+      }) %></script>
+      <script>
+        // Inisialisasi dari JSON agar editor tidak bingung parsing EJS di JS
+        (function(){
+          try {
+            var el = document.getElementById('jadwalOptions');
+            if (el) window.JADWAL_OPTIONS = JSON.parse(el.textContent);
+          } catch(e){}
+        })();
+      </script>
+      <% const hariMap = ['Ahad','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu']; %>
+      <!-- Notifikasi impor aSc dihapus karena fitur impor dinonaktifkan -->
+      <% if (typeof bulkDeleted !== 'undefined' || typeof bulkFailed !== 'undefined') { %>
+        <div class="notice" style="margin:8px 0 12px; padding:10px; border:1px solid #d1d5db; border-radius:8px; background:#ecfdf5; color:#065f46;">
+          <strong>Hapus Massal:</strong>
+          <span style="margin-left:8px;">Berhasil: <%= bulkDeleted || 0 %></span>
+          <span style="margin-left:8px;">Gagal: <%= bulkFailed || 0 %></span>
+        </div>
+      <% } %>
+
+      <!-- Form impor dan tautan template CSV dihapus -->
+      
+      <!-- Form input jadwal satuan dihapus. Gunakan tombol Grid per Guru di bawah. -->
+
+      <div class="header-actions" style="margin:10px 0 14px; display:flex; align-items:center; gap:6px; justify-content:space-between; flex-wrap:nowrap;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <label style="font-weight:600;">Tampilkan:</label>
+          <select id="limitSelectJadwal" name="limit" style="width:280px; padding:6px 8px; border:1px solid #d1d5db; border-radius:6px; box-sizing:border-box;">
+            <option value="10" <%= limit == 10 ? 'selected' : '' %>>10</option>
+            <option value="25" <%= limit == 25 ? 'selected' : '' %>>25</option>
+            <option value="50" <%= limit == 50 ? 'selected' : '' %>>50</option>
+            <option value="100" <%= limit == 100 ? 'selected' : '' %>>100</option>
+          </select>
+        </div>
+      
+        <form id="searchFormJadwal" method="get" action="/admin/jadwal" style="display:flex; align-items:center; gap:8px; flex:0 0 auto;">
+          <input type="hidden" name="limit" value="<%= limit %>">
+          <input type="text" id="searchInputJadwal" name="q" value="<%= q || '' %>" placeholder="Cari guru/tingkat/kelas/mapel" style="width:280px; height:40px; padding:6px 8px; border:1px solid #d1d5db; border-radius:6px; box-sizing:border-box;">
+          <button type="submit" class="btn btn-green" style="height:40px; padding:0 12px;">Cari</button>
+          <a href="/admin/jadwal" class="pill-link">Reset</a>
+        </form>
+      
+        <div style="display:flex; align-items:center; gap:8px;">
+          <a href="/admin/jadwal/form" class="pill-link pill-green" style="height:40px;">Form Input Jadwal</a>
+          <a href="/admin/jadwal/grid" class="pill-link pill-green" style="height:40px;">Input Jadwal Grid</a>
+          <button id="bulkDeleteJadwalBtn" class="pill-link pill-danger" style="height:40px;">Hapus Terpilih</button>
+        </div>
+      </div>
+      <!-- Form tersembunyi untuk bulk delete jadwal -->
+      <form id="bulkDeleteJadwalForm" method="post" action="/admin/jadwal/bulk-delete" style="display:none;"></form>
+
+      <script>
+        (function(){
+          var sel = document.getElementById('limitSelectJadwal');
+          if (!sel) return;
+          sel.addEventListener('change', function(){
+            var params = new URLSearchParams(window.location.search);
+            params.set('limit', this.value);
+            params.set('page', '1');
+            window.location.search = params.toString();
+          });
+        })();
+      </script>
+
+      <table class="table-realtime">
+        <thead>
+          <tr>
+            <th><input type="checkbox" id="masterCheckJadwal" title="Pilih semua"></th>
+            <th>No</th>
+            <th>
+              <a href="?sort=guru&order=<%= (typeof sort !== 'undefined' && sort==='guru' && order==='asc') ? 'desc' : 'asc' %>&limit=<%= typeof limit !== 'undefined' ? limit : 10 %><%= (typeof q !== 'undefined' && q) ? '&q=' + encodeURIComponent(q) : '' %>">Nama Guru<%= (typeof sort !== 'undefined' && sort==='guru') ? ((typeof order !== 'undefined' && order==='desc') ? ' ▼' : ' ▲') : '' %></a>
+            </th>
+            <th>
+              <a href="?sort=tingkat&order=<%= (typeof sort !== 'undefined' && sort==='tingkat' && order==='asc') ? 'desc' : 'asc' %>&limit=<%= typeof limit !== 'undefined' ? limit : 10 %><%= (typeof q !== 'undefined' && q) ? '&q=' + encodeURIComponent(q) : '' %>">Tingkat<%= (typeof sort !== 'undefined' && sort==='tingkat') ? ((typeof order !== 'undefined' && order==='desc') ? ' ▼' : ' ▲') : '' %></a>
+            </th>
+            <th>
+              <a href="?sort=kelas&order=<%= (typeof sort !== 'undefined' && sort==='kelas' && order==='asc') ? 'desc' : 'asc' %>&limit=<%= typeof limit !== 'undefined' ? limit : 10 %><%= (typeof q !== 'undefined' && q) ? '&q=' + encodeURIComponent(q) : '' %>">Kelas<%= (typeof sort !== 'undefined' && sort==='kelas') ? ((typeof order !== 'undefined' && order==='desc') ? ' ▼' : ' ▲') : '' %></a>
+            </th>
+            <th>
+              <a href="?sort=mapel&order=<%= (typeof sort !== 'undefined' && sort==='mapel' && order==='asc') ? 'desc' : 'asc' %>&limit=<%= typeof limit !== 'undefined' ? limit : 10 %><%= (typeof q !== 'undefined' && q) ? '&q=' + encodeURIComponent(q) : '' %>">Mapel<%= (typeof sort !== 'undefined' && sort==='mapel') ? ((typeof order !== 'undefined' && order==='desc') ? ' ▼' : ' ▲') : '' %></a>
+            </th>
+            <th>
+              <a href="?sort=jamKe&order=<%= (typeof sort !== 'undefined' && sort==='jamKe' && order==='asc') ? 'desc' : 'asc' %>&limit=<%= typeof limit !== 'undefined' ? limit : 10 %><%= (typeof q !== 'undefined' && q) ? '&q=' + encodeURIComponent(q) : '' %>">Jam Ke<%= (typeof sort !== 'undefined' && sort==='jamKe') ? ((typeof order !== 'undefined' && order==='desc') ? ' ▼' : ' ▲') : '' %></a>
+            </th>
+            <th>Aksi</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% function toHHMM(m){ return `${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}` } %>
+          <% rows.forEach((r) => { %>
+            <tr>
+              <td><input type="checkbox" class="row-check" value="<%= r.id %>" title="Pilih baris ini"></td>
+              <td><%= typeof r.no !== 'undefined' ? r.no : '-' %></td>
+              <td><%= r.guruNama %></td>
+              <td><%= r.tingkat || '-' %></td>
+              <td><%= r.kelasNama %></td>
+              <td><%= r.mapelNama %></td>
+              <td><%= r.jamKe %></td>
+              <td>
+                <div class="table-actions">
+                  <button type="button" class="pill-link btn-edit-jadwal"
+                    data-id="<%= r.id %>"
+                    data-guru-id="<%= r.guruId %>"
+                    data-kelas-id="<%= r.kelasId %>"
+                    data-mapel-id="<%= r.mapelId %>"
+                    data-hari="<%= r.hari %>"
+                    data-jam-ke="<%= r.jamKe %>"
+                    data-mulai="<%= toHHMM(r.mulaiMenit) %>"
+                    data-selesai="<%= toHHMM(r.selesaiMenit) %>"
+                  >Edit</button>
+                  <form method="post" action="/admin/jadwal/delete/<%= r.id %>" onsubmit="return confirm('Hapus jadwal ini?')">
+                    <button type="submit">Hapus</button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+
+      <% const startItem = (typeof totalRows !== 'undefined' && Number(totalRows) > 0) ? ((Number(page) - 1) * Number(limit)) + 1 : 0; %>
+      <% const endItem = (typeof totalRows !== 'undefined') ? Math.min(startItem + Number(limit) - 1, Number(totalRows)) : (rows && rows.length ? rows.length : 0); %>
+      <div style="margin-top:12px; color:#4b5563;">Menampilkan <%= startItem %>–<%= endItem %> dari <%= typeof totalRows !== 'undefined' ? totalRows : (rows && rows.length ? rows.length : 0) %> jadwal</div>
+        </main>
+  </div>
+</body></html>

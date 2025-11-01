@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rekap Detail - <%= titleDate %></title>
+  <style>
+    @page { size: A4 landscape; margin: 1cm; }
+    :root {
+      --border: #7a6748;
+      --header-bg: #b4874a;
+      --header-fg: #fff;
+      --text: #222;
+      --muted: #666;
+    }
+    body { font-family: Arial, Helvetica, sans-serif; color: var(--text); }
+    h1 { display:none; }
+    .title-wrap { display:flex; flex-direction:column; gap:2px; align-items:center; margin: 0 0 16px 0; }
+    .title-line { font-size: 16px; font-weight: 700; text-align:center; }
+    .title-date { text-transform: uppercase; }
+    .sub { font-size: 12px; color: var(--muted); margin: 0; text-align: center; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th, td { border: 1px solid var(--border); padding: 6px 8px; vertical-align: top; }
+    th { background: var(--header-bg); color: var(--header-fg); text-align: left; }
+    .nowrap { white-space: nowrap; }
+    .badge { display: inline-block; padding: 2px 6px; border-radius: 10px; font-size: 11px; }
+    .badge.success { background: #e6f4ea; color: #196a31; border: 1px solid #196a31; }
+    .badge.warning { background: #fff4e5; color: #a15c00; border: 1px solid #a15c00; }
+    @media print { th { color:#000 !important; font-weight:700 !important; } }
+  </style>
+</head>
+<body>
+  <div class="title-wrap">
+    <div class="title-line">DAFTAR REKAP DETAIL INPUT DOKUMENTASI PEMBELAJARAN</div>
+    <div class="title-line title-date">PADA <%= titleDate %></div>
+    <% if (school && school.trim()) { %>
+      <div class="title-line"><%= school %></div>
+    <% } %>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th class="nowrap">No</th>
+        <th class="nowrap">Tanggal</th>
+        <th>Nama Guru</th>
+        <th>Mapel</th>
+        <th>Kelas</th>
+        <th class="nowrap">Jam Ke</th>
+        <th>Jam (Waktu)</th>
+        <th class="nowrap">Status</th>
+        <th class="nowrap">Foto</th>
+        <th class="nowrap">Lokasi</th>
+        <th>Maps</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% rows.forEach(function(r, idx){ %>
+        <tr>
+          <td class="nowrap"><%= idx + 1 %></td>
+          <td class="nowrap"><%= r.tanggalLabel || (r.waktuKirim ? new Date(r.waktuKirim).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) : (start ? new Date(start).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) : '-')) %></td>
+          <td><%= r.nama %></td>
+          <td><%= r.mapel %></td>
+          <td><%= r.kelas %></td>
+          <td class="nowrap"><%= r.jamKe %></td>
+          <td class="nowrap"><%= r.jamTimes %></td>
+          <td class="nowrap">
+            <% if (String(r.status).toUpperCase() === 'SUDAH') { %>
+              <span class="badge success">Sudah</span>
+            <% } else { %>
+              <span class="badge warning">Belum</span>
+            <% } %>
+          </td>
+          <td class="nowrap">
+            <% if (String(r.fotoStatus).toUpperCase() === 'SUDAH') { %>
+              <span class="badge success">Ada</span>
+            <% } else { %>
+              <span class="badge warning">Tidak Ada</span>
+            <% } %>
+          </td>
+          <td class="nowrap"><%= r.lokasiValid %></td>
+          <td>
+            <% if (r.mapsUrl) { %>
+              <a href="<%= r.mapsUrl %>" target="_blank">Lihat Lokasi</a>
+            <% } else { %>
+              -
+            <% } %>
+          </td>
+        </tr>
+      <% }); %>
+    </tbody>
+  </table>
+</body>
+</html>

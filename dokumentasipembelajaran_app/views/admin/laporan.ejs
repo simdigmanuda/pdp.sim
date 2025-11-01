@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="id"><head><meta charset="UTF-8"><title>Laporan</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="/assets/admin.css">
+  <script src="/assets/admin.js" defer></script>
+</head>
+<body class="dashboard-simple">
+  <div class="layout">
+    <%- include('_sidebar') %>
+    <main class="content">
+      <div class="main-top"><a class="pill-link" href="/admin/logout">Keluar</a></div>
+
+      <% if (typeof bulkDeleted !== 'undefined' || typeof bulkFailed !== 'undefined') { %>
+        <div class="muted" style="margin:8px 0;">
+          Hapus: <strong><%= Number(bulkDeleted || 0) %></strong> sukses, <strong><%= Number(bulkFailed || 0) %></strong> gagal.
+        </div>
+      <% } %>
+
+      <form method="get" class="header-actions" style="display:flex; gap:8px; align-items:center; margin:12px 0; flex-wrap:wrap;">
+        <label class="muted">Mulai</label>
+        <input type="date" name="start" value="<%= start %>" style="padding:8px 10px; border:1px solid #d1d5db; border-radius:6px;">
+        <label class="muted">Selesai</label>
+        <input type="date" name="end" value="<%= end %>" style="padding:8px 10px; border:1px solid #d1d5db; border-radius:6px;">
+
+        <select name="guruId" style="padding:8px 10px; border:1px solid #d1d5db; border-radius:6px; min-width:180px;">
+          <option value="">Semua Guru</option>
+          <% (guruList || []).forEach(g => { %>
+            <option value="<%= g.id %>" <%= String(guruId) === String(g.id) ? 'selected' : '' %>><%= g.nama %></option>
+          <% }) %>
+        </select>
+        <select name="kelasId" style="padding:8px 10px; border:1px solid #d1d5db; border-radius:6px; min-width:160px;">
+          <option value="">Semua Kelas</option>
+          <% (kelasList || []).forEach(k => { %>
+            <option value="<%= k.id %>" <%= String(kelasId) === String(k.id) ? 'selected' : '' %>><%= k.nama %></option>
+          <% }) %>
+        </select>
+        <select name="hari" style="padding:8px 10px; border:1px solid #d1d5db; border-radius:6px;">
+          <% const hariOptions = ['Ahad','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu']; %>
+          <option value="all" <%= String(hari)==='all' ? 'selected' : '' %>>Semua Hari</option>
+          <% for (let i = 0; i < 7; i++) { %>
+            <option value="<%= i %>" <%= String(hari)===String(i) ? 'selected' : '' %>><%= hariOptions[i] %></option>
+          <% } %>
+        </select>
+        <input type="number" name="jamKe" value="<%= jamKe || '' %>" min="1" placeholder="Jam Ke" style="padding:8px 10px; border:1px solid #d1d5db; border-radius:6px; width:110px;">
+
+        <select name="mode" id="modeSelect" style="padding:8px 10px; border:1px solid #d1d5db; border-radius:6px;">
+          <option value="rekap" <%= mode==='rekap' ? 'selected' : '' %>>Rekap Detail</option>
+          <option value="valid" <%= mode==='valid' ? 'selected' : '' %>>Rekap Data Valid</option>
+          <option value="invalid" <%= mode==='invalid' ? 'selected' : '' %>>Rekap Data Tidak Valid</option>
+        </select>
+
+        <input type="text" name="q" value="<%= q || '' %>" placeholder="Cari nama/mapel/kelas" style="padding:8px 10px; border:1px solid #d1d5db; border-radius:6px; min-width:260px; flex:1;">
+        <select name="limit" style="padding:8px 10px; border:1px solid #d1d5db; border-radius:6px;">
+          <option value="10" <%= String(limit)==='10' ? 'selected' : '' %>>10</option>
+          <option value="20" <%= String(limit)==='20' ? 'selected' : '' %>>20</option>
+          <option value="50" <%= String(limit)==='50' ? 'selected' : '' %>>50</option>
+          <option value="100" <%= String(limit)==='100' ? 'selected' : '' %>>100</option>
+          <option value="1000" <%= String(limit)==='1000' ? 'selected' : '' %>>1000</option>
+        </select>
+        <input type="hidden" name="sort" value="<%= sort %>">
+        <input type="hidden" name="order" value="<%= order %>">
+        <button type="submit">Terapkan</button>
+        <a class="pill-link" href="/admin/laporan">Reset</a>
+      </form>
+
+      <div class="print-actions" style="display:flex; gap:8px; margin:6px 0 12px;">
+        <a class="pill-link" href="/admin/laporan/print-rekap?start=<%= encodeURIComponent(start) %>&end=<%= encodeURIComponent(end) %>&guruId=<%= guruId || '' %>&kelasId=<%= kelasId || '' %>&hari=<%= hari || 'all' %>&jamKe=<%= jamKe || '' %>&q=<%= q ? encodeURIComponent(q) : '' %>&sort=<%= sort || '' %>&order=<%= order || '' %>" target="_blank" rel="noopener">Print Rekap Detail (A4 Landscape)</a>
+        <a class="pill-link" href="/admin/laporan/print-valid?start=<%= encodeURIComponent(start) %>&end=<%= encodeURIComponent(end) %>&guruId=<%= guruId || '' %>&kelasId=<%= kelasId || '' %>&hari=<%= hari || 'all' %>&jamKe=<%= jamKe || '' %>&q=<%= q ? encodeURIComponent(q) : '' %>" target="_blank" rel="noopener">Print Rekap Data Valid (A4 Landscape)</a>
+        <a class="pill-link" href="/admin/laporan/print-invalid?start=<%= encodeURIComponent(start) %>&end=<%= encodeURIComponent(end) %>&guruId=<%= guruId || '' %>&kelasId=<%= kelasId || '' %>&hari=<%= hari || 'all' %>&jamKe=<%= jamKe || '' %>&q=<%= q ? encodeURIComponent(q) : '' %>" target="_blank" rel="noopener">Print Rekap Data Tidak Valid (A4 Landscape)</a>
+      </div>
+
+      <% if (mode === 'rekap') { %>
+        <form method="post" action="/admin/laporan/bulk-delete-dokumentasi" onsubmit="return confirm('Hapus dok valid untuk grup terpilih dalam rentang tanggal ini?');">
+          <input type="hidden" name="start" value="<%= start %>">
+          <input type="hidden" name="end" value="<%= end %>">
+          <table class="table-realtime table-sortable">
+            <thead>
+              <tr>
+                <th><input type="checkbox" id="chkAllRekap"></th>
+                <th>No</th>
+                <th data-sort-key="nama" <%= sort === 'nama' ? ('data-sort="' + order + '"') : '' %>>Nama Guru</th>
+                <th>Tanggal (Hari, Tgl)</th>
+                <th data-sort-key="mapel" <%= sort === 'mapel' ? ('data-sort="' + order + '"') : '' %>>Kode Mapel</th>
+                 <th data-sort-key="kelas" <%= sort === 'kelas' ? ('data-sort="' + order + '"') : '' %>>Kelas</th>
+                 <th data-sort-key="jamKe" <%= sort === 'jamKe' ? ('data-sort="' + order + '"') : '' %>>Jam Ke</th>
+                <th data-sort-key="status" <%= sort === 'status' ? ('data-sort="' + order + '"') : '' %>>Status Pengiriman Foto</th>
+                <th>Lokasi Maps</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% (rekap || []).forEach((r, i) => { %>
+                <tr>
+                  <td><input type="checkbox" name="groupKeys[]" value="<%= r.groupKey %>" class="chkRekap"></td>
+                  <td><%= i + 1 %></td>
+                  <td><%= r.nama %></td>
+                  <td><span class="muted"><%= r.hariLabel %></span>, <%= r.tanggalLabel || (r.waktuKirim ? new Date(r.waktuKirim).toLocaleDateString('id-ID',{ day:'2-digit', month:'short', year:'numeric' }) : new Date(start).toLocaleDateString('id-ID',{ day:'2-digit', month:'short', year:'numeric' })) %></td>
+                  <td><%= r.mapel %></td>
+                  <td><%= r.kelas %></td>
+                  <td><%= r.jamKe %></td>
+                  <td><%= r.status %><% if (r.fotoStatus) { %> — <span class="muted">Foto: <%= r.fotoStatus %></span><% } %></td>
+                  <td>
+                    <% if (r.lokasiValid === 'Valid') { %><span class="badge badge-valid">Valid</span><% } else if (r.lokasiValid === 'Tidak Valid') { %><span class="badge badge-invalid">Tidak Valid</span><% } else { %><span class="badge badge-muted">—</span><% } %>
+                    <% if (r.mapsUrl) { %>
+                      <a href="<%= r.mapsUrl %>" class="icon-map" target="_blank" rel="noopener" aria-label="Buka di Google Maps">
+                        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+                          <path fill="currentColor" d="M12 2C8.686 2 6 4.686 6 8c0 5.25 6 12 6 12s6-6.75 6-12c0-3.314-2.686-6-6-6zm0 8.5a2.5 2.5 0 110-5 2.5 2.5 0 010 5z"/>
+                        </svg>
+                      </a>
+                    <% } %>
+                  </td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+          <div class="pagination" style="margin-top:12px;">
+            <a class="<%= page === 1 ? 'disabled' : '' %>" href="?page=<%= Math.max(1, page - 1) %>&limit=<%= limit %>&sort=<%= sort %>&order=<%= order %>&mode=<%= mode %>&start=<%= start %>&end=<%= end %>&guruId=<%= guruId || '' %>&kelasId=<%= kelasId || '' %>&hari=<%= hari || 'all' %>&jamKe=<%= jamKe || '' %>&q=<%= q ? encodeURIComponent(q) : '' %>">Prev</a>
+            <% const maxPage = totalPages; const pagesToShow = Math.min(7, maxPage); let startPage = Math.max(1, page - Math.floor(pagesToShow/2)); if (startPage + pagesToShow - 1 > maxPage) startPage = Math.max(1, maxPage - pagesToShow + 1); %>
+            <% for (let p = startPage; p <= Math.min(maxPage, startPage + pagesToShow - 1); p++) { %>
+              <a class="<%= (p === page) ? 'active' : '' %>" href="?page=<%= p %>&limit=<%= limit %>&sort=<%= sort %>&order=<%= order %>&mode=<%= mode %>&start=<%= start %>&end=<%= end %>&guruId=<%= guruId || '' %>&kelasId=<%= kelasId || '' %>&hari=<%= hari || 'all' %>&jamKe=<%= jamKe || '' %>&q=<%= q ? encodeURIComponent(q) : '' %>"><%= p %></a>
+            <% } %>
+            <a class="<%= page >= totalPages ? 'disabled' : '' %>" href="?page=<%= Math.min(totalPages, page + 1) %>&limit=<%= limit %>&sort=<%= sort %>&order=<%= order %>&mode=<%= mode %>&start=<%= start %>&end=<%= end %>&guruId=<%= guruId || '' %>&kelasId=<%= kelasId || '' %>&hari=<%= hari || 'all' %>&jamKe=<%= jamKe || '' %>&q=<%= q ? encodeURIComponent(q) : '' %>">Next</a>
+          </div>
+          <div style="margin-top:10px; display:flex; gap:8px;">
+            <button type="submit" class="pill-link" style="border:1px solid #ef4444; color:#fff; background:#ef4444;">Hapus Dok Valid (Grup Terpilih)</button>
+          </div>
+        </form>
+      <% } %>
+
+
+
+      <% if (mode === 'valid') { %>
+        <form method="post" action="/admin/laporan/bulk-delete-dokumentasi" onsubmit="return confirm('Hapus dokumentasi valid terpilih?');">
+          <input type="hidden" name="start" value="<%= start %>">
+          <input type="hidden" name="end" value="<%= end %>">
+          <table class="table-realtime table-sortable">
+            <thead>
+              <tr>
+                <th><input type="checkbox" id="chkAllValid"></th>
+                <th>No</th>
+                <th data-sort-key="guru" <%= sort === 'guru' ? ('data-sort="' + order + '"') : '' %>>Nama Guru</th>
+                <th data-sort-key="waktu" <%= sort === 'waktu' ? ('data-sort="' + order + '"') : '' %>>Tanggal (Hari, Tgl)</th>
+                <th data-sort-key="mapel" <%= sort === 'mapel' ? ('data-sort="' + order + '"') : '' %>>Kode Mapel</th>
+                <th data-sort-key="kelas" <%= sort === 'kelas' ? ('data-sort="' + order + '"') : '' %>>Kelas</th>
+                 <th data-sort-key="jamDikirim" <%= sort === 'jamDikirim' ? ('data-sort="' + order + '"') : '' %>>Jam Ke</th>
+                 <th>Status Pengiriman Foto</th>
+                <th>Lokasi Maps</th>
+                <th>Foto</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% (validData || []).forEach((x, i) => { %>
+                <tr>
+                  <td><input type="checkbox" name="ids[]" value="<%= x.id %>" class="chkValid"></td>
+                  <td><%= i + 1 %></td>
+                  <td><%= x.guru %></td>
+                  <td><span class="muted"><%= ['Ahad','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'][new Date(x.waktu).getDay()] %></span>, <%= new Date(x.waktu).toLocaleDateString('id-ID',{ day:'2-digit', month:'short', year:'numeric' }) %></td>
+                  <td><%= x.mapel %></td>
+                  <td><%= x.kelas %></td>
+                  <td><%= x.jamDikirim %></td>
+                  <td><%= x.fotoUrl ? 'SUDAH' : 'BELUM' %></td>
+                  <td>
+                    <% if (x.lokasiValid === 'Valid') { %><span class="badge badge-valid">Valid</span><% } else if (x.lokasiValid === 'Tidak Valid') { %><span class="badge badge-invalid">Tidak Valid</span><% } else { %><span class="badge badge-muted">—</span><% } %>
+                    <% if (x.mapsUrl) { %>
+                      <a href="<%= x.mapsUrl %>" class="icon-map" target="_blank" rel="noopener" aria-label="Buka di Google Maps">
+                        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+                          <path fill="currentColor" d="M12 2C8.686 2 6 4.686 6 8c0 5.25 6 12 6 12s6-6.75 6-12c0-3.314-2.686-6-6-6zm0 8.5a2.5 2.5 0 110-5 2.5 2.5 0 010 5z"/>
+                        </svg>
+                      </a>
+                    <% } %>
+                  </td>
+                  <td class="td-foto">
+                    <% if (x.fotoUrl) { %>
+                      <img class="photo-thumb" src="<%= x.fotoUrl %>" alt="Foto Mengajar" style="max-width:100px; height:auto; border-radius:4px; cursor: zoom-in;" />
+                    <% } else { %>—<% } %>
+                  </td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+          <div class="pagination" style="margin-top:12px;">
+            <% const maxPageValid = validTotalPages; const pagesToShowValid = Math.min(7, maxPageValid); let startPageValid = Math.max(1, page - Math.floor(pagesToShowValid/2)); if (startPageValid + pagesToShowValid - 1 > maxPageValid) startPageValid = Math.max(1, maxPageValid - pagesToShowValid + 1); %>
+            <a class="<%= page === 1 ? 'disabled' : '' %>" href="?page=<%= Math.max(1, page - 1) %>&limit=<%= limit %>&mode=<%= mode %>&start=<%= start %>&end=<%= end %>&guruId=<%= guruId || '' %>&kelasId=<%= kelasId || '' %>&hari=<%= hari || 'all' %>&jamKe=<%= jamKe || '' %>&q=<%= q ? encodeURIComponent(q) : '' %>">Prev</a>
+            <% for (let p = startPageValid; p <= Math.min(maxPageValid, startPageValid + pagesToShowValid - 1); p++) { %>
+              <a class="<%= (p === page) ? 'active' : '' %>" href="?page=<%= p %>&limit=<%= limit %>&mode=<%= mode %>&start=<%= start %>&end=<%= end %>&guruId=<%= guruId || '' %>&kelasId=<%= kelasId || '' %>&hari=<%= hari || 'all' %>&jamKe=<%= jamKe || '' %>&q=<%= q ? encodeURIComponent(q) : '' %>"><%= p %></a>
+            <% } %>
+            <a class="<%= page >= maxPageValid ? 'disabled' : '' %>" href="?page=<%= Math.min(maxPageValid, page + 1) %>&limit=<%= limit %>&mode=<%= mode %>&start=<%= start %>&end=<%= end %>&guruId=<%= guruId || '' %>&kelasId=<%= kelasId || '' %>&hari=<%= hari || 'all' %>&jamKe=<%= jamKe || '' %>&q=<%= q ? encodeURIComponent(q) : '' %>">Next</a>
+          </div>
+          <div style="margin-top:10px; display:flex; gap:8px;">
+            <button type="submit" class="pill-link" style="border:1px solid #ef4444; color:#fff; background:#ef4444;">Hapus Dokumentasi Terpilih</button>
+          </div>
+        </form>
+      <% } %>
+
+      <% if (mode === 'invalid') { %>
+        <form method="post" action="/admin/laporan/bulk-delete-dokumentasi" onsubmit="return confirm('Hapus dokumentasi invalid terpilih?');">
+          <input type="hidden" name="start" value="<%= start %>">
+          <input type="hidden" name="end" value="<%= end %>">
+          <table class="table-realtime table-sortable">
+            <thead>
+              <tr>
+                <th><input type="checkbox" id="chkAllInvalid"></th>
+                <th>No</th>
+                <th data-sort-key="guru" <%= sort === 'guru' ? ('data-sort="' + order + '"') : '' %>>Nama Guru</th>
+                <th data-sort-key="waktu" <%= sort === 'waktu' ? ('data-sort="' + order + '"') : '' %>>Tanggal (Hari, Tgl)</th>
+                <th data-sort-key="mapel" <%= sort === 'mapel' ? ('data-sort="' + order + '"') : '' %>>Kode Mapel</th>
+                <th data-sort-key="kelas" <%= sort === 'kelas' ? ('data-sort="' + order + '"') : '' %>>Kelas</th>
+                <th data-sort-key="jamDikirim" <%= sort === 'jamDikirim' ? ('data-sort="' + order + '"') : '' %>>Jam Ke</th>
+                <th>Status Pengiriman Foto</th>
+                <th data-sort-key="alasan" <%= sort === 'alasan' ? ('data-sort="' + order + '"') : '' %>>Alasan</th>
+                <th>Lokasi Maps</th>
+                <th>Foto</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% (invalidData || []).forEach((x, i) => { %>
+                <tr>
+                  <td><input type="checkbox" name="ids[]" value="<%= x.id %>" class="chkInvalid"></td>
+                  <td><%= i + 1 %></td>
+                  <td><%= x.guru %></td>
+                  <td><span class="muted"><%= ['Ahad','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'][new Date(x.waktu).getDay()] %></span>, <%= new Date(x.waktu).toLocaleDateString('id-ID',{ day:'2-digit', month:'short', year:'numeric' }) %></td>
+                  <td><%= x.mapel %></td>
+                  <td><%= x.kelas %></td>
+                  <td><%= x.jamDikirim %></td>
+                  <td><%= x.fotoStatus || (x.fotoUrl ? 'SUDAH' : 'BELUM') %></td>
+                  <td>
+                    <% if (x.lokasiValid === 'Valid') { %><span class="badge badge-valid">Valid</span><% } else if (x.lokasiValid === 'Tidak Valid') { %><span class="badge badge-invalid">Tidak Valid</span><% } else { %><span class="badge badge-muted">—</span><% } %>
+                    <% if (x.mapsUrl) { %>
+                      <a href="<%= x.mapsUrl %>" class="icon-map" target="_blank" rel="noopener" aria-label="Buka di Google Maps">
+                        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+                          <path fill="currentColor" d="M12 2C8.686 2 6 4.686 6 8c0 5.25 6 12 6 12s6-6.75 6-12c0-3.314-2.686-6-6-6zm0 8.5a2.5 2.5 0 110-5 2.5 2.5 0 010 5z"/>
+                        </svg>
+                      </a>
+                    <% } %>
+                  </td>
+                  <td><span class="muted"><%= x.alasan %></span></td>
+                  <td class="td-foto">
+                    <% if (x.fotoUrl) { %>
+                      <img class="photo-thumb" src="<%= x.fotoUrl %>" alt="Foto Kiriman" style="max-width:100px; height:auto; border-radius:4px; cursor: zoom-in;" />
+                    <% } else { %>—<% } %>
+                  </td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+          <div class="pagination" style="margin-top:12px;">
+            <% const maxPageInvalid = invalidTotalPages; const pagesToShowInvalid = Math.min(7, maxPageInvalid); let startPageInvalid = Math.max(1, page - Math.floor(pagesToShowInvalid/2)); if (startPageInvalid + pagesToShowInvalid - 1 > maxPageInvalid) startPageInvalid = Math.max(1, maxPageInvalid - pagesToShowInvalid + 1); %>
+            <a class="<%= page === 1 ? 'disabled' : '' %>" href="?page=<%= Math.max(1, page - 1) %>&limit=<%= limit %>&mode=invalid&start=<%= start %>&end=<%= end %>&guruId=<%= guruId || '' %>&kelasId=<%= kelasId || '' %>&hari=<%= hari || 'all' %>&jamKe=<%= jamKe || '' %>&q=<%= q ? encodeURIComponent(q) : '' %>">Prev</a>
+            <% for (let p = startPageInvalid; p <= Math.min(maxPageInvalid, startPageInvalid + pagesToShowInvalid - 1); p++) { %>
+              <a class="<%= (p === page) ? 'active' : '' %>" href="?page=<%= p %>&limit=<%= limit %>&mode=invalid&start=<%= start %>&end=<%= end %>&guruId=<%= guruId || '' %>&kelasId=<%= kelasId || '' %>&hari=<%= hari || 'all' %>&jamKe=<%= jamKe || '' %>&q=<%= q ? encodeURIComponent(q) : '' %>"><%= p %></a>
+            <% } %>
+            <a class="<%= page >= maxPageInvalid ? 'disabled' : '' %>" href="?page=<%= Math.min(maxPageInvalid, page + 1) %>&limit=<%= limit %>&mode=invalid&start=<%= start %>&end=<%= end %>&guruId=<%= guruId || '' %>&kelasId=<%= kelasId || '' %>&hari=<%= hari || 'all' %>&jamKe=<%= jamKe || '' %>&q=<%= q ? encodeURIComponent(q) : '' %>">Next</a>
+          </div>
+          <div style="margin-top:10px; display:flex; gap:8px;">
+            <button type="submit" class="pill-link" style="border:1px solid #ef4444; color:#fff; background:#ef4444;">Hapus Dokumentasi Terpilih</button>
+          </div>
+        </form>
+      <% } %>
+
+      <style>
+        .badge { display:inline-block; padding:2px 8px; border-radius:999px; font-size:12px; line-height:18px; font-weight:600; }
+        .badge-valid { background:#dcfce7; color:#166534; border:1px solid #86efac; }
+        .badge-invalid { background:#fee2e2; color:#991b1b; border:1px solid #fecaca; }
+        .badge-muted { background:#eef2ff; color:#1f2937; border:1px solid #e5e7eb; }
+        .icon-map { display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; margin-left:6px; color:#2563eb; }
+        .icon-map svg { display:block; fill:currentColor; }
+        .icon-map:hover { color:#1d4ed8; }
+        .table-realtime thead th { cursor:default; user-select:none; }
+        .table-sortable thead th { cursor:pointer; user-select:none; }
+        .table-sortable thead th[data-sort="asc"]::after { content:" \25B2"; color:#64748b; }
+        .table-sortable thead th[data-sort="desc"]::after { content:" \25BC"; color:#64748b; }
+        .td-foto img.photo-thumb { box-shadow:0 2px 6px rgba(0,0,0,0.15); }
+      </style>
+
+      <script>
+        (function(){
+          // Toggle sort headers for all tables
+            const tables = Array.from(document.querySelectorAll('table.table-sortable'));
+            if (tables.length) {
+              const url = new URL(window.location.href);
+              const currentSort = url.searchParams.get('sort');
+              const currentOrder = url.searchParams.get('order') || 'asc';
+              tables.forEach(table => {
+                table.querySelectorAll('thead th[data-sort-key]').forEach(th => {
+                  th.style.cursor = 'pointer';
+                  th.addEventListener('click', () => {
+                    const key = th.getAttribute('data-sort-key');
+                    const isSameKey = currentSort === key;
+                    const nextOrder = isSameKey && currentOrder === 'asc' ? 'desc' : 'asc';
+                    url.searchParams.set('sort', key);
+                    url.searchParams.set('order', nextOrder);
+                    url.searchParams.set('page', '1');
+                    window.location.href = url.toString();
+                  });
+                });
+              });
+            }
+          
+
+          // Mode select resets page
+          const modeSelect = document.getElementById('modeSelect');
+          if (modeSelect) {
+            modeSelect.addEventListener('change', () => {
+              const url = new URL(window.location.href);
+              url.searchParams.set('mode', modeSelect.value);
+              url.searchParams.set('page', '1');
+              window.location.href = url.toString();
+            });
+          }
+
+          // Check all behavior per section
+          function bindCheckAll(sectionKey, chkAllId, itemClass){
+            if (!document.getElementById(chkAllId)) return;
+            const chkAll = document.getElementById(chkAllId);
+            const items = Array.from(document.querySelectorAll('input.' + itemClass));
+            chkAll.addEventListener('change', () => {
+              items.forEach(chk => { chk.checked = chkAll.checked; });
+            });
+          }
+
+          bindCheckAll('rekap','chkAllRekap','chkRekap');
+          // (mode 'semua' dihapus)
+          bindCheckAll('valid','chkAllValid','chkValid');
+          bindCheckAll('invalid','chkAllInvalid','chkInvalid');
+        })();
+      </script>
+    </main>
+  </div>
+</body></html>

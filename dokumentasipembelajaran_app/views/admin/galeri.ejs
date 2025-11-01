@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="id"><head><meta charset="UTF-8"><title>Galeri Foto Harian</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="/assets/admin.css">
+  <script src="/assets/admin.js" defer></script>
+  <style>
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px,1fr)); gap: 12px; }
+  .card { border: 1px solid #e5e7eb; border-radius: 10px; padding: 10px; background:#fff; box-shadow: 0 4px 10px rgba(0,0,0,0.06); overflow:hidden; }
+  .card img { width: 100%; border-radius: 8px; }
+  .meta { font-size: 12px; color: #333; margin-top: 6px; line-height: 1.5; }
+  /* Filter bar */
+  .galeri-filter { display:grid; grid-template-columns: 1fr 1fr 1fr auto; gap:8px; align-items:end; margin:10px 0 14px; }
+  .field { display:flex; flex-direction:column; gap:6px; min-width:0; }
+  .field-label { font-weight:700; font-size:13px; line-height:18px; color:#374151; }
+  .galeri-input { width:100%; padding:8px 12px; border:1px solid #d1d5db; border-radius:10px; background:#fff; height:40px; box-sizing:border-box; }
+  .galeri-input:focus { border-color:#057159; outline:none; box-shadow:0 0 0 3px rgba(5,113,89,0.18); }
+  .galeri-actions { display:flex; gap:10px; align-items:center; justify-content:flex-start; grid-column: 4; align-self:start; margin-top: 30px; }
+  .galeri-actions button, .galeri-actions .pill-link { height:40px; min-height:40px; padding:0 16px; display:inline-flex; align-items:center; border-radius:12px; }
+  .galeri-actions .pill-link { background:#057159; color:#fff; text-decoration:none; border:1px solid #057159; cursor:pointer; }
+  .galeri-actions .pill-link:hover { background:#045c49; border-color:#045c49; }
+  /* Bulk bar */
+  .bulk-bar { display:flex; gap:12px; align-items:center; justify-content:flex-start; margin:8px 0; flex-wrap:wrap; }
+  .bulk-check { display:flex; align-items:center; gap:8px; color:#374151; }
+  .btn-danger { background:#e11d48; color:#fff; border:1px solid #e11d48; text-decoration:none; border-radius:12px; height:40px; padding:0 16px; display:inline-flex; align-items:center; }
+  .btn-danger:hover { background:#be123c; border-color:#be123c; }
+  .btn-danger:focus { outline:none; box-shadow:0 0 0 3px rgba(225, 29, 72, 0.18); }
+  @media (max-width: 900px) {
+    .galeri-filter { grid-template-columns: repeat(2, minmax(0,1fr)); }
+    .galeri-actions { grid-column: 1 / span 2; }
+  }
+  </style>
+</head>
+<body class="dashboard-simple">
+  <div class="layout">
+    <%- include('_sidebar') %>
+    <main class="content">
+      <div class="main-top"><a class="pill-link" href="/admin/logout">Keluar</a></div>
+      <h2>Galeri Foto Harian</h2>
+  <form method="get" action="/admin/galeri" class="filter-grid">
+    <div class="field">
+      <label class="field-label">Mulai</label>
+      <input class="filter-input" type="date" name="start" value="<%= (typeof start !== 'undefined') ? start : (typeof tanggal !== 'undefined' && tanggal ? tanggal : '') %>">
+    </div>
+    <div class="field">
+      <label class="field-label">Sampai</label>
+      <input class="filter-input" type="date" name="end" value="<%= (typeof end !== 'undefined') ? end : (typeof tanggal !== 'undefined' && tanggal ? tanggal : '') %>">
+    </div>
+    <div class="field">
+      <label class="field-label">Guru</label>
+      <select class="filter-input" name="guruId">
+        <option value="">-- Semua Guru --</option>
+        <% guru.forEach(g => { %>
+          <option value="<%= g.id %>" <%= (selectedGuruId===g.id)?'selected':'' %>><%= g.nama %></option>
+        <% }) %>
+      </select>
+    </div>
+    <div class="field">
+      <label class="field-label">Mapel</label>
+      <div class="filter-inline">
+        <select class="filter-input" name="mapelId">
+          <option value="">-- Semua Mapel --</option>
+          <% mapel.forEach(m => { %>
+            <option value="<%= m.id %>" <%= (selectedMapelId===m.id)?'selected':'' %>><%= m.kode || m.nama %></option>
+          <% }) %>
+        </select>
+        <div class="filter-actions">
+          <button type="submit">Terapkan</button>
+          <a class="pill-link" href="/admin/galeri">Reset</a>
+        </div>
+      </div>
+    </div>
+  </form>
+
+      <% if (typeof canDelete !== 'undefined' && canDelete) { %>
+      <div class="bulk-bar">
+        <label class="bulk-check">
+          <input type="checkbox" id="masterCheckGaleri" title="Pilih semua">
+          <span>Pilih Semua</span>
+        </label>
+        <button type="button" id="bulkDeleteGaleriBtn" class="btn-danger">Hapus Terpilih</button>
+      </div>
+      <% } %>
+      <% if (typeof bulkDeleted !== 'undefined' || typeof bulkFailed !== 'undefined') { %>
+        <div style="margin:8px 0; padding:8px 10px; border-radius:6px; background:#ecfdf5; color:#065f46;">
+          Hapus massal — Berhasil: <%= bulkDeleted || 0 %>, Gagal: <%= bulkFailed || 0 %>
+        </div>
+      <% } %>
+      <% if (typeof canDelete !== 'undefined' && canDelete) { %>
+        <form id="bulkDeleteGaleriForm" method="post" action="/admin/galeri/bulk-delete" style="display:none;"></form>
+      <% } %>
+
+      <div class="grid">
+    <% docs.forEach(d => { %>
+      <div class="card">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
+          <% if (typeof canDelete !== 'undefined' && canDelete) { %>
+            <label style="display:flex; align-items:center; gap:6px;">
+              <input type="checkbox" class="row-check" value="<%= d.id %>" title="Pilih foto ini">
+              <span>#<%= d.id %></span>
+            </label>
+          <% } else { %>
+            <span>#<%= d.id %></span>
+          <% } %>
+        </div>
+        <img src="/<%= d.fotoPath %>" alt="Foto <%= d.guru.nama %>">
+        <div class="meta">
+          <div><strong><%= d.guru.nama %></strong></div>
+          <div>Mapel: <%= d.mapel ? (d.mapel.kode || d.mapel.nama) : '-' %></div>
+          <div>Kelas: <%= d.kelas ? d.kelas.nama : '-' %></div>
+          <div>Waktu: <%= new Date(d.createdAt).toLocaleString('id-ID') %></div>
+          <div>Koordinat: <%= (d.latitude && d.longitude) ? `${d.latitude.toFixed(6)}, ${d.longitude.toFixed(6)}` : '-' %></div>
+          <div>Valid Lokasi: <%= (d.isLocationValid === true) ? 'YA' : (d.isLocationValid === false) ? 'TIDAK' : '-' %></div>
+        </div>
+      </div>
+    <% }) %>
+      </div>
+    </main>
+  </div>
+</body></html>

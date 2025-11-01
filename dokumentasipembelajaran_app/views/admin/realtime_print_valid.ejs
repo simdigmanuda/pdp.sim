@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Rekap Data Valid - <%= titleDate %></title>
+  <style>
+    @page { size: A4 landscape; margin: 1cm; }
+    :root {
+      --border: #7a6748;
+      --header-bg: #b4874a;
+      --header-fg: #fff;
+      --text: #222;
+      --muted: #666;
+    }
+    body { font-family: Arial, Helvetica, sans-serif; color: var(--text); }
+    h1 { display:none; }
+    .title-wrap { display:flex; flex-direction:column; gap:2px; align-items:center; margin: 0 0 16px 0; }
+    .title-line { font-size: 16px; font-weight: 700; text-align:center; }
+    .title-date { text-transform: uppercase; }
+    .sub { font-size: 12px; color: var(--muted); margin: 0; text-align: center; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th, td { border: 1px solid var(--border); padding: 6px 8px; vertical-align: top; }
+    th { background: var(--header-bg); color: var(--header-fg); text-align: left; }
+    .text-center { text-align: center; }
+    .badge { display: inline-block; padding: 2px 6px; border-radius: 10px; font-size: 11px; }
+    .badge-valid { background: #e6f4ea; color: #196a31; border: 1px solid #196a31; }
+    .photo-thumb { max-width: 80px; height: auto; border-radius: 4px; }
+    @media print { .no-print { display: none; } th { color:#000 !important; font-weight:700 !important; } }
+  </style>
+</head>
+<body>
+  <div class="title-wrap">
+    <div class="title-line">DAFTAR REKAP DATA VALID INPUT DOKUMENTASI PEMBELAJARAN</div>
+    <div class="title-line title-date">PADA <%= titleDate %></div>
+    <% if (school && school.trim()) { %>
+      <div class="title-line"><%= school %></div>
+    <% } %>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width:40px">No</th>
+        <th>Nama Guru</th>
+        <th>Kode Mapel</th>
+        <th>Kelas</th>
+        <th>Jam Dikirim</th>
+        <th>Waktu Pengiriman</th>
+        <th>Lokasi Maps</th>
+        <th>Foto</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% const fmtDT = (d) => new Date(d).toLocaleString('id-ID', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit', second:'2-digit' }); %>
+      <% valids.forEach((x, i) => { %>
+        <tr>
+          <td class="text-center"><%= i + 1 %></td>
+          <td><%= x.guru %></td>
+          <td><%= x.mapel %></td>
+          <td><%= x.kelas %></td>
+          <td><%= x.jamDikirim %></td>
+          <td><%= x.waktuKirim ? fmtDT(x.waktuKirim) : (x.waktu ? fmtDT(x.waktu) : '-') %></td>
+          <td>
+            <% if (x.latitude && x.longitude) { %>
+              <div>
+                <span class="badge badge-valid">Valid</span>
+              </div>
+              <div><%= Number(x.latitude).toFixed(5) %>, <%= Number(x.longitude).toFixed(5) %></div>
+            <% } else { %>
+              <span class="badge badge-valid">-</span>
+            <% } %>
+          </td>
+          <td class="text-center">
+            <% if (x.fotoUrl) { %>
+              <img class="photo-thumb" src="<%= x.fotoUrl %>" alt="Foto Mengajar" />
+            <% } else { %>
+              -
+            <% } %>
+          </td>
+        </tr>
+      <% }) %>
+      <% if (!valids || !valids.length) { %>
+        <tr>
+          <td class="text-center" colspan="8">Tidak ada data valid untuk hari ini.</td>
+        </tr>
+      <% } %>
+    </tbody>
+  </table>
+
+  <div class="no-print" style="margin-top:10px; font-size: 12px; color: var(--muted);">
+    Cetak menggunakan A4 landscape, margin 1 cm. (Ctrl/Cmd + P)
+  </div>
+</body>
+</html>
